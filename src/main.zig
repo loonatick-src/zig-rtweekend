@@ -1,4 +1,5 @@
 const std = @import("std");
+const Type = std.builtin.Type;
 const vec3 = @import("vec3.zig");
 const ray = @import("ray.zig");
 
@@ -9,17 +10,18 @@ const Vec3_init = vec3.Vec3_init;
 const Color = vec3.Color;
 const Color_init = vec3.Color_init;
 const Point3_init = vec3.Point3_init;
+const Ray_init = ray.Ray_init;
 
 const unit_vector = vec3.unit_vector;
 const scale = vec3.scale;
 
 // TODO: Ray struct is not generic
-fn ray_color(r: Ray) Color(f32) {
-    const unit_direction = unit_vector(f32, r.dir);
-    const one = @as(f32, 1.0);
-    const t = @as(f32, 0.5) * (unit_direction[1] + one);
-    const grayscale_component = scale(f32, t, Color_init(f32, one, one, one));
-    const color_component = scale(f32, one - t, Color_init(f32, 0.5, 0.7, 1.0));
+fn ray_color(comptime T: type, r: Ray(T)) Color(T) {
+    const unit_direction = unit_vector(T, r.dir);
+    const one = @as(T, 1.0);
+    const t = @as(T, 0.5) * (unit_direction[1] + one);
+    const grayscale_component = scale(T, t, Color_init(T, one, one, one));
+    const color_component = scale(T, one - t, Color_init(T, 0.5, 0.7, 1.0));
     return grayscale_component + color_component;
 }
 
@@ -52,11 +54,8 @@ pub fn main() anyerror!void {
         while (i < image_width) : (i += 1) {
             const u = @intToFloat(f32, i) / dw;
             const v = @intToFloat(f32, j) / dh;
-            const r = Ray{
-                .orig = origin,
-                .dir = lower_left_corner + scale(@TypeOf(u), u, horizontal) + scale(@TypeOf(v), v, vertical) - origin,
-            };
-            const pixel_color = ray_color(r);
+            const r = Ray_init(f32, origin, lower_left_corner + scale(f32, u, horizontal) + scale(f32, v, vertical) - origin);
+            const pixel_color = ray_color(f32, r);
             const scaling_factor: f32 = 255.999;
             const red = @floatToInt(i32, scaling_factor * pixel_color[0]);
             const green = @floatToInt(i32, scaling_factor * pixel_color[1]);
