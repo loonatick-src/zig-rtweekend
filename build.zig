@@ -13,6 +13,8 @@ pub fn build(b: *std.build.Builder) void {
 
     const exe = b.addExecutable("zig-rtweekend", "src/main.zig");
     exe.setTarget(target);
+    // exe.addIncludePath("src");
+    exe.addIncludeDir("src");
     exe.setBuildMode(mode);
     exe.install();
 
