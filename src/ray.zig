@@ -10,7 +10,7 @@ pub fn Ray(comptime T: type) type {
     };
 }
 
-pub fn at(comptime T: type, t: T, r: Ray(T)) Ray(T) {
+pub fn at(comptime T: type, t: T, r: Ray(T)) Vec3(T) {
     return r.orig + scale(t, T, r.dir);
 }
 
