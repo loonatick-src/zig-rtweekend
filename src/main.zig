@@ -20,17 +20,27 @@ const scale = vec3.scale;
 
 // TODO: Ray struct is not generic
 fn ray_color(comptime T: type, r: Ray(T)) Color(T) {
+    // TOOD: see if better quadratic formula should be used
     var t = hit_sphere(T, Point3_init(T, 0, 0, -1), 0.5, r);
+
     if (t > 0.0) {
+        // sphere was hit
+        // calculate normal vector at point of contact
         const N = unit_vector(T, at(T, t, r) - Vec3_init(T, 0, 0, -1));
+        // calculate color from normal vector
         return scale(T, 0.5, Color_init(T, N[0] + 1, N[1] + 1, N[2] + 1));
     }
+
     const unit_direction = unit_vector(T, r.dir);
     const one = @as(T, 1.0);
+    // t = 0.5 * (unit_direction.y() + 1.0);
     t = @as(T, 0.5) * (unit_direction[1] + one);
-    const grayscale_component = scale(T, t, Color_init(T, one, one, one));
-    const color_component = scale(T, one - t, Color_init(T, 0.5, 0.7, 1.0));
-    return grayscale_component + color_component;
+
+    const white = Color_init(T, one, one, one);
+    const gray = scale(T, 1.0 - t, white);
+    var blue = Color_init(T, 0.5, 0.7, 1.0);
+    blue = scale(T, t, blue);
+    return gray + blue;
 }
 
 fn hit_sphere(comptime T: type, center: Point3(T), radius: T, r: Ray(T)) T {
@@ -66,8 +76,10 @@ pub fn main() anyerror!void {
     const origin = Point3_init(f32, 0, 0, 0);
     const horizontal = Vec3_init(f32, viewport_width, 0, 0);
     const vertical = Vec3_init(f32, 0, viewport_height, 0);
+
     const horizontal_midpoint = scale(f32, 0.5, horizontal);
     const vertical_midpoint = scale(f32, 0.5, vertical);
+
     const lower_left_corner = origin - horizontal_midpoint - vertical_midpoint - Vec3_init(f32, 0, 0, focal_length);
 
     try stdout.print("P3\n{} {}\n255\n", .{ image_width, image_height });
@@ -78,12 +90,13 @@ pub fn main() anyerror!void {
         while (i < image_width) : (i += 1) {
             const u = @intToFloat(f32, i) / dw;
             const v = @intToFloat(f32, j) / dh;
+            // r = Ray(f32) { .orig = origin, .dir = lower_left_corner + u*horizontal + v*vertical - origin };
             const r = Ray_init(f32, origin, lower_left_corner + scale(f32, u, horizontal) + scale(f32, v, vertical) - origin);
             const pixel_color = ray_color(f32, r);
-            const scaling_factor: f32 = 255.999;
-            const red = @floatToInt(i32, scaling_factor * pixel_color[0]);
-            const green = @floatToInt(i32, scaling_factor * pixel_color[1]);
-            const blue = @floatToInt(i32, scaling_factor * pixel_color[2]);
+            const s: f32 = 255.999;
+            const red = @floatToInt(i32, s * pixel_color[0]);
+            const green = @floatToInt(i32, s * pixel_color[1]);
+            const blue = @floatToInt(i32, s * pixel_color[2]);
             try stdout.print("{} {} {}\n", .{ red, green, blue });
         }
     }
