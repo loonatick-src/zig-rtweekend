@@ -13,30 +13,37 @@ const Color_init = vec3.Color_init;
 const Point3_init = vec3.Point3_init;
 const Ray_init = ray.Ray_init;
 const dot = vec3.dot;
+const at = ray.at;
 
 const unit_vector = vec3.unit_vector;
 const scale = vec3.scale;
 
 // TODO: Ray struct is not generic
 fn ray_color(comptime T: type, r: Ray(T)) Color(T) {
-    if (hit_sphere(T, Point3_init(T, 0, 0, -1), 0.5, r)) {
-        return Color_init(T, 1, 0, 0);
+    var t = hit_sphere(T, Point3_init(T, 0, 0, -1), 0.5, r);
+    if (t > 0.0) {
+        const N = unit_vector(T, at(T, t, r) - Vec3_init(T, 0, 0, -1));
+        return scale(T, 0.5, Color_init(T, N[0] + 1, N[1] + 1, N[2] + 1));
     }
     const unit_direction = unit_vector(T, r.dir);
     const one = @as(T, 1.0);
-    const t = @as(T, 0.5) * (unit_direction[1] + one);
+    t = @as(T, 0.5) * (unit_direction[1] + one);
     const grayscale_component = scale(T, t, Color_init(T, one, one, one));
     const color_component = scale(T, one - t, Color_init(T, 0.5, 0.7, 1.0));
     return grayscale_component + color_component;
 }
 
-fn hit_sphere(comptime T: type, center: Point3(T), radius: T, r: Ray(T)) bool {
+fn hit_sphere(comptime T: type, center: Point3(T), radius: T, r: Ray(T)) T {
     const oc = r.orig - center;
     const a = dot(T, r.dir, r.dir);
     const b = 2.0 * dot(T, oc, r.dir);
     const c = dot(T, oc, oc) - radius * radius;
     const discriminant = b * b - 4 * a * c;
-    return (discriminant > 0);
+    if (discriminant < 0) {
+        return -1.0;
+    } else {
+        return (-b - @sqrt(discriminant)) / (2.0 * a);
+    }
 }
 
 pub fn main() anyerror!void {

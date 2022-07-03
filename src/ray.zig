@@ -10,8 +10,9 @@ pub fn Ray(comptime T: type) type {
     };
 }
 
+// TODO: change this to take a reference as first arg?
 pub fn at(comptime T: type, t: T, r: Ray(T)) Vec3(T) {
-    return r.orig + scale(t, T, r.dir);
+    return r.orig + scale(T, t, r.dir);
 }
 
 pub fn Ray_init(comptime T: type, orig: Point3(T), dir: Vec3(T)) Ray(T) {
