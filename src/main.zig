@@ -1,7 +1,8 @@
 const std = @import("std");
-const Type = std.builtin.Type;
 const vec3 = @import("vec3.zig");
 const ray = @import("ray.zig");
+const File = std.fs.File;
+const BufferedWriter = std.io.BufferedWriter;
 
 // how does a guy export, yea?
 const Ray = ray.Ray;
@@ -18,14 +19,23 @@ const length_squared = vec3.length_squared;
 
 const unit_vector = vec3.unit_vector;
 const scale = vec3.scale;
+const buffer_size: usize = 4096;
 
-// TODO: Ray struct is not generic
+fn write_color(comptime WriterType: type, out: WriterType, comptime T: type, color: Color(T)) !void {
+    const s: T = 255.999;
+    const pixel_color = scale(T, s, color);
+    const red = @floatToInt(i32, pixel_color[0]);
+    const green = @floatToInt(i32, pixel_color[1]);
+    const blue = @floatToInt(i32, pixel_color[2]);
+    try out.print("{} {} {}\n", .{ red, green, blue });
+}
+
 fn ray_color(comptime T: type, r: Ray(T)) Color(T) {
     // TOOD: see if better quadratic formula should be used
     var t = hit_sphere(T, Point3_init(T, 0, 0, -1), 0.5, r);
 
     if (t > 0.0) {
-        // sphere was hit
+        // sphere hit
         // calculate normal vector at point of contact
         const N = unit_vector(T, at(T, t, r) - Vec3_init(T, 0, 0, -1));
         // calculate color from normal vector
@@ -58,8 +68,11 @@ fn hit_sphere(comptime T: type, center: Point3(T), radius: T, r: Ray(T)) T {
 }
 
 pub fn main() anyerror!void {
-    // TODO: add buffering
-    const stdout = std.io.getStdOut().writer();
+    var stdout = std.io.getStdOut().writer();
+    // there are probably builtins for retrieving
+    // comptime info from polymorphic types
+    var buffer = std.io.BufferedWriter(buffer_size, @TypeOf(stdout)){ .unbuffered_writer = stdout };
+    var bufout = buffer.writer();
 
     // image properties
     const aspect_ratio = @as(f32, 16.0 / 9.0);
@@ -83,24 +96,22 @@ pub fn main() anyerror!void {
 
     const lower_left_corner = origin - horizontal_midpoint - vertical_midpoint - Vec3_init(f32, 0, 0, focal_length);
 
-    try stdout.print("P3\n{} {}\n255\n", .{ image_width, image_height });
+    try bufout.print("P3\n{} {}\n255\n", .{ image_width, image_height });
 
     var j = image_height - 1;
     while (j >= 0) : (j -= 1) {
+        std.debug.print("{} out of {} lines remaining\n", .{ j + 1, image_height });
         var i: i32 = 0;
         while (i < image_width) : (i += 1) {
             const u = @intToFloat(f32, i) / dw;
             const v = @intToFloat(f32, j) / dh;
-            // r = Ray(f32) { .orig = origin, .dir = lower_left_corner + u*horizontal + v*vertical - origin };
             const r = Ray_init(f32, origin, lower_left_corner + scale(f32, u, horizontal) + scale(f32, v, vertical) - origin);
             const pixel_color = ray_color(f32, r);
-            const s: f32 = 255.999;
-            const red = @floatToInt(i32, s * pixel_color[0]);
-            const green = @floatToInt(i32, s * pixel_color[1]);
-            const blue = @floatToInt(i32, s * pixel_color[2]);
-            try stdout.print("{} {} {}\n", .{ red, green, blue });
+            try write_color(@TypeOf(bufout), bufout, f32, pixel_color);
         }
     }
+
+    try buffer.flush();
 }
 
 test "basic test" {
