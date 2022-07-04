@@ -35,6 +35,10 @@ pub fn unit_vector(comptime T: type, v: Vec3(T)) Vec3(T) {
     return rv;
 }
 
+pub fn length_squared(comptime T: type, v: Vec3(T)) T {
+    return dot(T, v, v);
+}
+
 pub const Point3 = Vec3;
 pub const Color = Vec3;
 

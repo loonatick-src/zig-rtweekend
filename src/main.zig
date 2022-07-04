@@ -14,6 +14,7 @@ const Point3_init = vec3.Point3_init;
 const Ray_init = ray.Ray_init;
 const dot = vec3.dot;
 const at = ray.at;
+const length_squared = vec3.length_squared;
 
 const unit_vector = vec3.unit_vector;
 const scale = vec3.scale;
@@ -45,14 +46,14 @@ fn ray_color(comptime T: type, r: Ray(T)) Color(T) {
 
 fn hit_sphere(comptime T: type, center: Point3(T), radius: T, r: Ray(T)) T {
     const oc = r.orig - center;
-    const a = dot(T, r.dir, r.dir);
-    const b = 2.0 * dot(T, oc, r.dir);
-    const c = dot(T, oc, oc) - radius * radius;
-    const discriminant = b * b - 4 * a * c;
+    const a = length_squared(T, r.dir);
+    const half_b = dot(T, oc, r.dir);
+    const c = length_squared(T, oc) - radius * radius;
+    const discriminant = half_b * half_b - a * c;
     if (discriminant < 0) {
         return -1.0;
     } else {
-        return (-b - @sqrt(discriminant)) / (2.0 * a);
+        return (-half_b - @sqrt(discriminant)) / a;
     }
 }
 
