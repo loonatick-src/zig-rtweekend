@@ -17,14 +17,14 @@ pub fn HittableList(comptime T: type) type {
         // to manage memory manually in such a simple application.
         objects: std.ArrayList(*(Hittable(T))),
 
-        pub fn hit(self: *@This(), hit_parameters: *HitParameters) bool {
-            var temp_rec: HitRecord = *(hit_parameters.hit_record);
-            var temp_hit_params = *hit_parameters;
+        pub fn hit(self: *@This(), hit_parameters: *HitParameters(T)) bool {
+            var temp_rec: HitRecord(T) = hit_parameters.hit_record.*;
+            var temp_hit_params = hit_parameters.*;
             temp_hit_params.hit_record = &temp_rec;
             var hit_anything = false;
             var closest_so_far = hit_parameters.t_max;
 
-            for (self.objects) |*object| {
+            for (self.objects.items) |*object| {
                 if (object.*.hit(&temp_hit_params)) {
                     hit_anything = true;
                     closest_so_far = temp_hit_params.hit_record.t;
@@ -33,6 +33,10 @@ pub fn HittableList(comptime T: type) type {
             }
 
             return hit_anything;
+        }
+
+        pub fn add(self: *@This(), obj: *(Hittable(T))) !void {
+            try self.objects.append(obj);
         }
     };
 }

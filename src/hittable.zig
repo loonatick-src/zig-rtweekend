@@ -20,11 +20,11 @@ pub fn HitRecord(comptime T: type) type {
         t: T,
         front_face: bool,
 
-        pub fn set_face_normal(r: Ray(T), outward_normal: Vec3(T)) void {
+        pub fn set_face_normal(self: *@This(), r: Ray(T), outward_normal: Vec3(T)) void {
             const front_face = dot(T, r.dir, outward_normal) < 0;
-            var normal = outward_normal;
+            self.normal = outward_normal;
             if (!front_face) {
-                normal = (Vec3(T){ 0, 0, 0 }) - outward_normal;
+                self.normal = (Vec3(T){ 0, 0, 0 }) - outward_normal;
             }
         }
     };
@@ -49,18 +49,18 @@ pub fn Hittable(comptime T: type) type {
         vtable: *const VTable,
         object: usize,
 
-        fn hit(self: @This(), hit_parameters: *HitParameters(T)) bool {
-            self.vtable.hit(self.object, hit_parameters);
+        pub fn hit(self: @This(), hit_parameters: *HitParameters(T)) bool {
+            return self.vtable.hit(self.object, hit_parameters);
         }
 
-        fn make(obj: anytype) @This() {
+        pub fn make(obj: anytype) @This() {
             const PtrType = @TypeOf(obj);
             return .{
                 .vtable = &comptime VTable{
                     .hit = struct {
-                        fn hit(ptr: usize, hit_parameters: *HitParameters) bool {
+                        fn hit(ptr: usize, hit_parameters: *(HitParameters(T))) bool {
                             const self = @intToPtr(PtrType, ptr);
-                            @call(.{ .modifier = .always_inline }, std.meta.Child(PtrType).hit, .{ self, hit_parameters });
+                            return @call(.{ .modifier = .always_inline }, std.meta.Child(PtrType).hit, .{ self, hit_parameters });
                         } // fn hit
                     }.hit, // .hit
                 }, // .vtable

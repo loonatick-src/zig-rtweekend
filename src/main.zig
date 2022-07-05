@@ -1,12 +1,16 @@
 const std = @import("std");
+const File = std.fs.File;
+const ArrayList = std.ArrayList;
+const BufferedWriter = std.io.BufferedWriter;
+const inf = std.math.inf;
+
 const vec3 = @import("vec3.zig");
 const ray = @import("ray.zig");
 const hittable = @import("hittable.zig");
 const hittable_list = @import("hittable_list.zig");
-const File = std.fs.File;
-const BufferedWriter = std.io.BufferedWriter;
-const inf = std.math.inf;
+const sphere = @import("sphere.zig");
 
+const Sphere = sphere.Sphere;
 const Ray = ray.Ray;
 const Vec3 = vec3.Vec3;
 const Point3 = vec3.Point3;
@@ -36,14 +40,14 @@ fn write_color(comptime WriterType: type, out: WriterType, comptime T: type, col
 }
 
 fn ray_color(comptime T: type, r: *Ray(T), world: *Hittable(T)) Color(T) {
-    var rec: HitRecord = undefined;
+    var rec: HitRecord(T) = undefined;
     var hit_parameters: HitParameters(T) = .{ .r = r.*, .t_min = 0, .t_max = inf(T), .hit_record = &rec };
     if (world.hit(&hit_parameters)) {
         return scale(T, @as(T, 0.5), rec.normal + Color(T){ 1, 1, 1 });
     }
 
-    const unit_direction = unit_vector(r.dir);
-    const t = scale(T, 0.5, unit_direction[1] + 1.0);
+    const unit_direction = unit_vector(T, r.dir);
+    const t = 0.5 * (unit_direction[1] + 1.0);
     return scale(T, 1.0 - t, Color(T){ 1, 1, 1 }) + scale(T, t, Color(T){ 0.5, 0.7, 1.0 });
 }
 
@@ -62,15 +66,29 @@ pub fn main() anyerror!void {
     const dh = @as(f32, image_height - 1);
 
     // World
-    var world: HittableList(f32) = undefined;
-    // TODO: initialize world
-    // - Initialize ArrayList
-    // - Add both spheres to ArrayList
-    // - Fix compile errors
-    // - render
-    comptime {
-        @compileError("Complete the code please");
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+    defer {
+        // TODO: is this fine? Might be better things to do
+        _ = gpa.deinit();
     }
+    var objects = ArrayList(*(Hittable(f32))).init(allocator);
+    defer objects.deinit();
+
+    var world_hlist: HittableList(f32) = .{ .objects = objects };
+    const small_sphere_allocd = try allocator.alloc(Sphere(f32), 1);
+    const small_sphere_ptr = @ptrCast(*(Sphere(f32)), small_sphere_allocd);
+    small_sphere_ptr.center = Point3(f32){ 0, 0, -1 };
+    small_sphere_ptr.radius = @as(f32, 0.5);
+    var small_sphere_hittable = Hittable(f32).make(small_sphere_ptr);
+    try world_hlist.add(&small_sphere_hittable);
+    const large_sphere_allocd = try allocator.alloc(Sphere(f32), 1);
+    const large_sphere_ptr = @ptrCast(*(Sphere(f32)), large_sphere_allocd);
+    large_sphere_ptr.center = Point3(f32){ 0, -100.5, -1 };
+    large_sphere_ptr.radius = @as(f32, 100);
+    var large_sphere_hittable = Hittable(f32).make(large_sphere_ptr);
+    try world_hlist.add(&large_sphere_hittable);
+    var world = Hittable(f32).make(&world_hlist);
 
     // viewport config
     const viewport_height: f32 = 2.0;
@@ -96,7 +114,7 @@ pub fn main() anyerror!void {
         while (i < image_width) : (i += 1) {
             const u = @intToFloat(f32, i) / dw;
             const v = @intToFloat(f32, j) / dh;
-            const r = Ray_init(f32, origin, lower_left_corner + scale(f32, u, horizontal) + scale(f32, v, vertical) - origin);
+            var r: Ray(f32) = .{ .orig = origin, .dir = lower_left_corner + scale(f32, u, horizontal) + scale(f32, v, vertical) - origin };
             const pixel_color = ray_color(f32, &r, &world);
             try write_color(@TypeOf(bufout), bufout, f32, pixel_color);
         }
