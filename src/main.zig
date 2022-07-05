@@ -4,7 +4,6 @@ const ray = @import("ray.zig");
 const File = std.fs.File;
 const BufferedWriter = std.io.BufferedWriter;
 
-// how does a guy export, yea?
 const Ray = ray.Ray;
 const Vec3 = vec3.Vec3;
 const Point3 = vec3.Point3;
@@ -14,7 +13,6 @@ const Color_init = vec3.Color_init;
 const Point3_init = vec3.Point3_init;
 const Ray_init = ray.Ray_init;
 const dot = vec3.dot;
-const at = ray.at;
 const length_squared = vec3.length_squared;
 
 const unit_vector = vec3.unit_vector;
@@ -37,7 +35,7 @@ fn ray_color(comptime T: type, r: Ray(T)) Color(T) {
     if (t > 0.0) {
         // sphere hit
         // calculate normal vector at point of contact
-        const N = unit_vector(T, at(T, t, r) - Vec3_init(T, 0, 0, -1));
+        const N = unit_vector(T, r.at(t) - Vec3_init(T, 0, 0, -1));
         // calculate color from normal vector
         return scale(T, 0.5, Color_init(T, N[0] + 1, N[1] + 1, N[2] + 1));
     }
