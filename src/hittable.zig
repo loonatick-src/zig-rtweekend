@@ -39,7 +39,7 @@ pub fn HitParameters(comptime T: type) type {
         // TODO: consider changing default value to slightly negative
         t_min: T = @as(T, 0),
         t_max: T,
-        hit_record: *HitRecord,
+        hit_record: *(HitRecord(T)),
     };
 }
 
