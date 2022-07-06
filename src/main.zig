@@ -1,9 +1,16 @@
 const std = @import("std");
-const vec3 = @import("vec3.zig");
-const ray = @import("ray.zig");
+const ArrayList = std.ArrayList;
 const File = std.fs.File;
 const BufferedWriter = std.io.BufferedWriter;
+const inf = std.math.inf;
 
+const vec3 = @import("vec3.zig");
+const ray = @import("ray.zig");
+const hittable = @import("hittable.zig");
+const hittable_list = @import("hittable_list.zig");
+const sphere = @import("sphere.zig");
+
+const Sphere = sphere.Sphere;
 const Ray = ray.Ray;
 const Vec3 = vec3.Vec3;
 const Point3 = vec3.Point3;
@@ -14,6 +21,10 @@ const Point3_init = vec3.Point3_init;
 const Ray_init = ray.Ray_init;
 const dot = vec3.dot;
 const length_squared = vec3.length_squared;
+const HitRecord = hittable.HitRecord;
+const Hittable = hittable.Hittable;
+const HittableList = hittable_list.HittableList;
+const HitParameters = hittable.HitParameters;
 
 const unit_vector = vec3.unit_vector;
 const scale = vec3.scale;
@@ -28,47 +39,23 @@ fn write_color(comptime WriterType: type, out: WriterType, comptime T: type, col
     try out.print("{} {} {}\n", .{ red, green, blue });
 }
 
-fn ray_color(comptime T: type, r: Ray(T)) Color(T) {
-    // TOOD: see if better quadratic formula should be used
-    var t = hit_sphere(T, Point3_init(T, 0, 0, -1), 0.5, r);
-
-    if (t > 0.0) {
-        // sphere hit
-        // calculate normal vector at point of contact
-        const N = unit_vector(T, r.at(t) - Vec3_init(T, 0, 0, -1));
-        // calculate color from normal vector
-        return scale(T, 0.5, Color_init(T, N[0] + 1, N[1] + 1, N[2] + 1));
+fn ray_color(comptime T: type, r: *Ray(T), world: *Hittable(T)) Color(T) {
+    var rec: HitRecord(T) = undefined;
+    if (world.hit(r.*, 0, inf(T), &rec)) {
+        return scale(T, @as(T, 0.5), rec.normal + Color(T){ 1, 1, 1 });
     }
 
     const unit_direction = unit_vector(T, r.dir);
-    const one = @as(T, 1.0);
-    // t = 0.5 * (unit_direction.y() + 1.0);
-    t = @as(T, 0.5) * (unit_direction[1] + one);
-
-    const white = Color_init(T, one, one, one);
-    const gray = scale(T, 1.0 - t, white);
-    var blue = Color_init(T, 0.5, 0.7, 1.0);
-    blue = scale(T, t, blue);
-    return gray + blue;
-}
-
-fn hit_sphere(comptime T: type, center: Point3(T), radius: T, r: Ray(T)) T {
-    const oc = r.orig - center;
-    const a = length_squared(T, r.dir);
-    const half_b = dot(T, oc, r.dir);
-    const c = length_squared(T, oc) - radius * radius;
-    const discriminant = half_b * half_b - a * c;
-    if (discriminant < 0) {
-        return -1.0;
-    } else {
-        return (-half_b - @sqrt(discriminant)) / a;
-    }
+    const t = 0.5 * (unit_direction[1] + 1.0);
+    const gray = scale(T, 1.0 - t, Color(T){ 1.0, 1.0, 1.0 });
+    const blue = scale(T, t, Color(T){ 0.5, 0.7, 1.0 });
+    const final_color = gray + blue;
+    return final_color;
 }
 
 pub fn main() anyerror!void {
+    // Be writing the PPM file to stdout
     var stdout = std.io.getStdOut().writer();
-    // there are probably builtins for retrieving
-    // comptime info from polymorphic types
     var buffer = std.io.BufferedWriter(buffer_size, @TypeOf(stdout)){ .unbuffered_writer = stdout };
     var bufout = buffer.writer();
 
@@ -76,42 +63,86 @@ pub fn main() anyerror!void {
     const aspect_ratio = @as(f32, 16.0 / 9.0);
     const image_width: i32 = 400;
     const image_height = @floatToInt(i32, @as(f32, image_width) / aspect_ratio);
-    const dw = @as(f32, image_width - 1);
-    const dh = @as(f32, image_height - 1);
 
-    // viewport config
+    // Initialize the world along with its geometric entities
+    // start with a general purpose allocator
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    // initialize array list for storing `Hittable(T)` objects
+    var objects = ArrayList(*(Hittable(f32))).init(allocator);
+    defer objects.deinit();
+
+    // construct world object using the hittables
+    var world_hlist: HittableList(f32) = .{ .objects = objects };
+    defer world_hlist.objects.deinit();
+
+    // the world has two spheres, a small one and a large one
+    // Initialize the small sphere first
+    // const small_sphere_allocd = try allocator.alloc(Sphere(f32), 1);
+    // defer allocator.free(small_sphere_allocd);
+
+    // Initialize and add the sphere to the array_list of objects in the world
+    // const small_sphere_ptr = @ptrCast(*(Sphere(f32)), small_sphere_allocd);
+    // TODO: create an init function
+    // small_sphere_ptr.center = Point3(f32){ 0, 0, -1 };
+    // small_sphere_ptr.radius = @as(f32, 0.5);
+    var small_sphere: Sphere(f32) = .{
+        .center = Point3(f32){ 0, 0, -1 },
+        .radius = @as(f32, 0.5),
+    };
+    var small_sphere_hittable = Hittable(f32).make(&small_sphere);
+    try world_hlist.add(&small_sphere_hittable);
+
+    // same for the larger sphere
+    // const large_sphere_allocd = try allocator.alloc(Sphere(f32), 1);
+    // defer allocator.free(large_sphere_allocd);
+    // const large_sphere_ptr = @ptrCast(*(Sphere(f32)), large_sphere_allocd);
+    // large_sphere_ptr.center = Point3(f32){ 0, -100.5, -1 };
+    // large_sphere_ptr.radius = @as(f32, 100);
+    var large_sphere: Sphere(f32) = .{
+        .center = Point3(f32){ 0, -100.5, -1 },
+        .radius = @as(f32, 100),
+    };
+    var large_sphere_hittable = Hittable(f32).make(&large_sphere);
+    try world_hlist.add(&large_sphere_hittable);
+
+    // make a Hittable(f32) out of the HittableList(f32) object that is the world
+    var world = Hittable(f32).make(&world_hlist);
+
+    // Viewport
     const viewport_height: f32 = 2.0;
     const viewport_width = aspect_ratio * viewport_height;
-    const focal_length: f32 = 1.0;
+    const focal_length: f32 = 1.0; // distance from "screen"
 
-    // orient ourselves with respect to the viewport
+    // describe a coordinate system and orient the viewport
     const origin = Point3_init(f32, 0, 0, 0);
     const horizontal = Vec3_init(f32, viewport_width, 0, 0);
     const vertical = Vec3_init(f32, 0, viewport_height, 0);
 
     const horizontal_midpoint = scale(f32, 0.5, horizontal);
     const vertical_midpoint = scale(f32, 0.5, vertical);
-
-    const lower_left_corner = origin - horizontal_midpoint - vertical_midpoint - Vec3_init(f32, 0, 0, focal_length);
+    const lower_left_corner = origin - horizontal_midpoint - vertical_midpoint - Vec3(f32){ 0, 0, focal_length };
 
     try bufout.print("P3\n{} {}\n255\n", .{ image_width, image_height });
 
     var j = image_height - 1;
+
+    const dw = @as(f32, image_width - 1);
+    const dh = @as(f32, image_height - 1);
     while (j >= 0) : (j -= 1) {
         std.debug.print("{} out of {} lines remaining\n", .{ j + 1, image_height });
         var i: i32 = 0;
         while (i < image_width) : (i += 1) {
             const u = @intToFloat(f32, i) / dw;
             const v = @intToFloat(f32, j) / dh;
-            const r = Ray_init(f32, origin, lower_left_corner + scale(f32, u, horizontal) + scale(f32, v, vertical) - origin);
-            const pixel_color = ray_color(f32, r);
+            // I really dislike this formating that zig.vim is enforcing here
+            var r: Ray(f32) = .{ .orig = origin, .dir = lower_left_corner + scale(f32, u, horizontal) + scale(f32, v, vertical) - origin };
+            const pixel_color = ray_color(f32, &r, &world);
             try write_color(@TypeOf(bufout), bufout, f32, pixel_color);
         }
     }
 
     try buffer.flush();
-}
-
-test "basic test" {
-    try std.testing.expectEqual(10, 3 + 7);
 }

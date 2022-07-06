@@ -1,6 +1,7 @@
 const std = @import("std");
 const ray = @import("ray.zig");
 const vec3 = @import("vec3.zig");
+const inf = std.math.inf;
 
 const Point3 = vec3.Point3;
 const Vec3 = vec3.Vec3;
@@ -20,47 +21,34 @@ pub fn HitRecord(comptime T: type) type {
         t: T,
         front_face: bool,
 
-        pub fn set_face_normal(r: Ray(T), outward_normal: Vec3(T)) void {
+        pub fn set_face_normal(self: *@This(), r: Ray(T), outward_normal: Vec3(T)) void {
             const front_face = dot(T, r.dir, outward_normal) < 0;
-            var normal = outward_normal;
+            self.normal = outward_normal;
             if (!front_face) {
-                normal = (Vec3(T){ 0, 0, 0 }) - outward_normal;
+                self.normal = (Vec3(T){ 0, 0, 0 }) - outward_normal;
             }
         }
     };
 }
 
-// decided to package the paramters in a struct because if I recall correctly
-// some hit functions in the original code do not use all parameters,
-// which is not allowed in Zig.
-pub fn HitParameters(comptime T: type) type {
-    return struct {
-        r: Ray(T),
-        // TODO: consider changing default value to slightly negative
-        t_min: T = @as(T, 0),
-        t_max: T,
-        hit_record: *HitRecord,
-    };
-}
-
 pub fn Hittable(comptime T: type) type {
     return struct {
-        const VTable = struct { hit: fn (usize, *HitParameters(T)) bool };
+        const VTable = struct { hit: fn (usize, r: Ray(T), t_min: T, t_max: T, rec: *HitRecord(T)) bool };
         vtable: *const VTable,
         object: usize,
 
-        fn hit(self: @This(), hit_parameters: *HitParameters(T)) bool {
-            self.vtable.hit(self.object, hit_parameters);
+        pub fn hit(self: @This(), r: Ray(T), t_min: T, t_max: T, rec: *HitRecord(T)) bool {
+            return self.vtable.hit(self.object, r, t_min, t_max, rec);
         }
 
-        fn make(obj: anytype) @This() {
+        pub fn make(obj: anytype) @This() {
             const PtrType = @TypeOf(obj);
             return .{
                 .vtable = &comptime VTable{
                     .hit = struct {
-                        fn hit(ptr: usize, hit_parameters: *HitParameters) bool {
+                        pub fn hit(ptr: usize, r: Ray(T), t_min: T, t_max: T, rec: *HitRecord(T)) bool {
                             const self = @intToPtr(PtrType, ptr);
-                            @call(.{ .modifier = .always_inline }, std.meta.Child(PtrType).hit, .{ self, hit_parameters });
+                            return @call(.{ .modifier = .always_inline }, std.meta.Child(PtrType).hit, .{ self, r, t_min, t_max, rec });
                         } // fn hit
                     }.hit, // .hit
                 }, // .vtable
