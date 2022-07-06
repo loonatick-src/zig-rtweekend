@@ -67,8 +67,8 @@ pub fn main() anyerror!void {
     // Initialize the world along with its geometric entities
     // start with a general purpose allocator
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
     defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
 
     // initialize array list for storing `Hittable(T)` objects
     var objects = ArrayList(*(Hittable(f32))).init(allocator);
@@ -76,28 +76,36 @@ pub fn main() anyerror!void {
 
     // construct world object using the hittables
     var world_hlist: HittableList(f32) = .{ .objects = objects };
+    defer world_hlist.objects.deinit();
 
     // the world has two spheres, a small one and a large one
     // Initialize the small sphere first
-    const small_sphere_allocd = try allocator.alloc(Sphere(f32), 1);
-    defer allocator.free(small_sphere_allocd);
+    // const small_sphere_allocd = try allocator.alloc(Sphere(f32), 1);
+    // defer allocator.free(small_sphere_allocd);
 
     // Initialize and add the sphere to the array_list of objects in the world
-    // The way polymorphism is implemented (probably incorrectly?) makes this clunky
-    const small_sphere_ptr = @ptrCast(*(Sphere(f32)), small_sphere_allocd);
+    // const small_sphere_ptr = @ptrCast(*(Sphere(f32)), small_sphere_allocd);
     // TODO: create an init function
-    small_sphere_ptr.center = Point3(f32){ 0, 0, -1 };
-    small_sphere_ptr.radius = @as(f32, 0.5);
-    var small_sphere_hittable = Hittable(f32).make(small_sphere_ptr);
+    // small_sphere_ptr.center = Point3(f32){ 0, 0, -1 };
+    // small_sphere_ptr.radius = @as(f32, 0.5);
+    var small_sphere: Sphere(f32) = .{
+        .center = Point3(f32){ 0, 0, -1 },
+        .radius = @as(f32, 0.5),
+    };
+    var small_sphere_hittable = Hittable(f32).make(&small_sphere);
     try world_hlist.add(&small_sphere_hittable);
 
     // same for the larger sphere
-    const large_sphere_allocd = try allocator.alloc(Sphere(f32), 1);
-    defer allocator.free(large_sphere_allocd);
-    const large_sphere_ptr = @ptrCast(*(Sphere(f32)), large_sphere_allocd);
-    large_sphere_ptr.center = Point3(f32){ 0, -100.5, -1 };
-    large_sphere_ptr.radius = @as(f32, 100);
-    var large_sphere_hittable = Hittable(f32).make(large_sphere_ptr);
+    // const large_sphere_allocd = try allocator.alloc(Sphere(f32), 1);
+    // defer allocator.free(large_sphere_allocd);
+    // const large_sphere_ptr = @ptrCast(*(Sphere(f32)), large_sphere_allocd);
+    // large_sphere_ptr.center = Point3(f32){ 0, -100.5, -1 };
+    // large_sphere_ptr.radius = @as(f32, 100);
+    var large_sphere: Sphere(f32) = .{
+        .center = Point3(f32){ 0, -100.5, -1 },
+        .radius = @as(f32, 100),
+    };
+    var large_sphere_hittable = Hittable(f32).make(&large_sphere);
     try world_hlist.add(&large_sphere_hittable);
 
     // make a Hittable(f32) out of the HittableList(f32) object that is the world
