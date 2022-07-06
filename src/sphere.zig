@@ -34,10 +34,7 @@ pub fn Sphere(comptime T: type) type {
             const t_max = hit_parameters.t_max;
             var root = (-half_b - sqrtd) / a;
             if ((root < t_min) or (t_max < root)) {
-                root = (-half_b + sqrtd) / a;
-                if ((root < t_min) or (t_max < root)) {
-                    return false;
-                }
+                return false;
             }
             const rec = hit_parameters.hit_record;
             rec.t = root;
