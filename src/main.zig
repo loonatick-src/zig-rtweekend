@@ -41,8 +41,7 @@ fn write_color(comptime WriterType: type, out: WriterType, comptime T: type, col
 
 fn ray_color(comptime T: type, r: *Ray(T), world: *Hittable(T)) Color(T) {
     var rec: HitRecord(T) = undefined;
-    var hit_parameters: HitParameters(T) = .{ .r = r.*, .t_min = 0, .t_max = inf(T), .hit_record = &rec };
-    if (world.hit(&hit_parameters)) {
+    if (world.hit(r.*, 0, inf(T), &rec)) {
         return scale(T, @as(T, 0.5), rec.normal + Color(T){ 1, 1, 1 });
     }
 
@@ -50,10 +49,7 @@ fn ray_color(comptime T: type, r: *Ray(T), world: *Hittable(T)) Color(T) {
     const t = 0.5 * (unit_direction[1] + 1.0);
     const gray = scale(T, 1.0 - t, Color(T){ 1.0, 1.0, 1.0 });
     const blue = scale(T, t, Color(T){ 0.5, 0.7, 1.0 });
-    std.debug.print("Gray: {} {} {}\n", .{ gray[0], gray[1], gray[2] });
-    std.debug.print("Blue: {} {} {}\n", .{ blue[0], blue[1], blue[2] });
     const final_color = gray + blue;
-    std.debug.print("Final: {} {} {}\n", .{ final_color[0], final_color[1], final_color[2] });
     return final_color;
 }
 
@@ -128,7 +124,7 @@ pub fn main() anyerror!void {
     const dw = @as(f32, image_width - 1);
     const dh = @as(f32, image_height - 1);
     while (j >= 0) : (j -= 1) {
-        // std.debug.print("{} out of {} lines remaining\n", .{ j + 1, image_height });
+        std.debug.print("{} out of {} lines remaining\n", .{ j + 1, image_height });
         var i: i32 = 0;
         while (i < image_width) : (i += 1) {
             const u = @intToFloat(f32, i) / dw;

@@ -31,27 +31,14 @@ pub fn HitRecord(comptime T: type) type {
     };
 }
 
-// decided to package the paramters in a struct because if I recall correctly
-// some hit functions in the original code do not use all parameters,
-// which is not allowed in Zig.
-pub fn HitParameters(comptime T: type) type {
-    return struct {
-        r: Ray(T),
-        // TODO: consider changing default value to slightly negative
-        t_min: T = @as(T, 0),
-        t_max: T,
-        hit_record: *(HitRecord(T)),
-    };
-}
-
 pub fn Hittable(comptime T: type) type {
     return struct {
-        const VTable = struct { hit: fn (usize, *HitParameters(T)) bool };
+        const VTable = struct { hit: fn (usize, r: Ray(T), t_min: T, t_max: T, rec: *HitRecord(T)) bool };
         vtable: *const VTable,
         object: usize,
 
-        pub fn hit(self: @This(), hit_parameters: *HitParameters(T)) bool {
-            return self.vtable.hit(self.object, hit_parameters);
+        pub fn hit(self: @This(), r: Ray(T), t_min: T, t_max: T, rec: *HitRecord(T)) bool {
+            return self.vtable.hit(self.object, r, t_min, t_max, rec);
         }
 
         pub fn make(obj: anytype) @This() {
@@ -59,9 +46,9 @@ pub fn Hittable(comptime T: type) type {
             return .{
                 .vtable = &comptime VTable{
                     .hit = struct {
-                        pub fn hit(ptr: usize, hit_parameters: *(HitParameters(T))) bool {
+                        pub fn hit(ptr: usize, r: Ray(T), t_min: T, t_max: T, rec: *HitRecord(T)) bool {
                             const self = @intToPtr(PtrType, ptr);
-                            return @call(.{ .modifier = .always_inline }, std.meta.Child(PtrType).hit, .{ self, hit_parameters });
+                            return @call(.{ .modifier = .always_inline }, std.meta.Child(PtrType).hit, .{ self, r, t_min, t_max, rec });
                         } // fn hit
                     }.hit, // .hit
                 }, // .vtable
