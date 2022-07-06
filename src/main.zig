@@ -97,6 +97,7 @@ pub fn main() anyerror!void {
 
     // same for the larger sphere
     const large_sphere_allocd = try allocator.alloc(Sphere(f32), 1);
+    defer allocator.free(large_sphere_allocd);
     const large_sphere_ptr = @ptrCast(*(Sphere(f32)), large_sphere_allocd);
     large_sphere_ptr.center = Point3(f32){ 0, -100.5, -1 };
     large_sphere_ptr.radius = @as(f32, 100);
