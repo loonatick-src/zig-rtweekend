@@ -1,15 +1,23 @@
 const std = @import("std");
+
 const ArrayList = std.ArrayList;
 const File = std.fs.File;
 const BufferedWriter = std.io.BufferedWriter;
 const inf = std.math.inf;
 
 const vec3 = @import("vec3.zig");
+const rtweekend = @import("rtweekend.zig");
 const ray = @import("ray.zig");
 const hittable = @import("hittable.zig");
 const hittable_list = @import("hittable_list.zig");
 const sphere = @import("sphere.zig");
+const color = @import("color.zig");
+const camera = @import("camera.zig");
 
+const random_float = rtweekend.random_float;
+
+const Camera = camera.Camera;
+const write_color = color.write_color;
 const Sphere = sphere.Sphere;
 const Ray = ray.Ray;
 const Vec3 = vec3.Vec3;
@@ -29,15 +37,6 @@ const HitParameters = hittable.HitParameters;
 const unit_vector = vec3.unit_vector;
 const scale = vec3.scale;
 const buffer_size: usize = 4096;
-
-fn write_color(comptime WriterType: type, out: WriterType, comptime T: type, color: Color(T)) !void {
-    const s: T = 255.999;
-    const pixel_color = scale(T, s, color);
-    const red = @floatToInt(i32, pixel_color[0]);
-    const green = @floatToInt(i32, pixel_color[1]);
-    const blue = @floatToInt(i32, pixel_color[2]);
-    try out.print("{} {} {}\n", .{ red, green, blue });
-}
 
 fn ray_color(comptime T: type, r: *Ray(T), world: *Hittable(T)) Color(T) {
     var rec: HitRecord(T) = undefined;
@@ -63,6 +62,10 @@ pub fn main() anyerror!void {
     const aspect_ratio = @as(f32, 16.0 / 9.0);
     const image_width: i32 = 400;
     const image_height = @floatToInt(i32, @as(f32, image_width) / aspect_ratio);
+    const samples_per_pixel: i32 = 100;
+
+    // Camera
+    const cam = Camera(f32).init();
 
     // Initialize the world along with its geometric entities
     // start with a general purpose allocator
@@ -111,22 +114,14 @@ pub fn main() anyerror!void {
     // make a Hittable(f32) out of the HittableList(f32) object that is the world
     var world = Hittable(f32).make(&world_hlist);
 
-    // Viewport
-    const viewport_height: f32 = 2.0;
-    const viewport_width = aspect_ratio * viewport_height;
-    const focal_length: f32 = 1.0; // distance from "screen"
-
-    // describe a coordinate system and orient the viewport
-    const origin = Point3_init(f32, 0, 0, 0);
-    const horizontal = Vec3_init(f32, viewport_width, 0, 0);
-    const vertical = Vec3_init(f32, 0, viewport_height, 0);
-
-    const horizontal_midpoint = scale(f32, 0.5, horizontal);
-    const vertical_midpoint = scale(f32, 0.5, vertical);
-    const lower_left_corner = origin - horizontal_midpoint - vertical_midpoint - Vec3(f32){ 0, 0, focal_length };
-
     try bufout.print("P3\n{} {}\n255\n", .{ image_width, image_height });
 
+    var prng = std.rand.DefaultPrng.init(blk: {
+        var seed: u64 = undefined;
+        try std.os.getrandom(std.mem.asBytes(&seed));
+        break :blk seed;
+    });
+    const rand = prng.random();
     var j = image_height - 1;
 
     const dw = @as(f32, image_width - 1);
@@ -135,12 +130,15 @@ pub fn main() anyerror!void {
         std.debug.print("{} out of {} lines remaining\n", .{ j + 1, image_height });
         var i: i32 = 0;
         while (i < image_width) : (i += 1) {
-            const u = @intToFloat(f32, i) / dw;
-            const v = @intToFloat(f32, j) / dh;
-            // I really dislike this formating that zig.vim is enforcing here
-            var r: Ray(f32) = .{ .orig = origin, .dir = lower_left_corner + scale(f32, u, horizontal) + scale(f32, v, vertical) - origin };
-            const pixel_color = ray_color(f32, &r, &world);
-            try write_color(@TypeOf(bufout), bufout, f32, pixel_color);
+            var pixel_color = Color(f32){ 0, 0, 0 };
+            var s: i32 = 0;
+            while (s < samples_per_pixel) : (s += 1) {
+                const u = (@intToFloat(f32, i) + random_float(f32, rand)) / dw;
+                const v = (@intToFloat(f32, j) + random_float(f32, rand)) / dh;
+                var r = cam.get_ray(u, v);
+                pixel_color += ray_color(f32, &r, &world);
+            }
+            try write_color(@TypeOf(bufout), bufout, f32, pixel_color, samples_per_pixel);
         }
     }
 
