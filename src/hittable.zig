@@ -1,6 +1,7 @@
 const std = @import("std");
 const ray = @import("ray.zig");
 const vec3 = @import("vec3.zig");
+const inf = std.math.inf;
 
 const Point3 = vec3.Point3;
 const Vec3 = vec3.Vec3;
@@ -58,7 +59,7 @@ pub fn Hittable(comptime T: type) type {
             return .{
                 .vtable = &comptime VTable{
                     .hit = struct {
-                        fn hit(ptr: usize, hit_parameters: *(HitParameters(T))) bool {
+                        pub fn hit(ptr: usize, hit_parameters: *(HitParameters(T))) bool {
                             const self = @intToPtr(PtrType, ptr);
                             return @call(.{ .modifier = .always_inline }, std.meta.Child(PtrType).hit, .{ self, hit_parameters });
                         } // fn hit

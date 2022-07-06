@@ -31,7 +31,6 @@ pub fn HittableList(comptime T: type) type {
                     hit_parameters.hit_record = temp_hit_params.hit_record;
                 }
             }
-
             return hit_anything;
         }
 

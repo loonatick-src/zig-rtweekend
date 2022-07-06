@@ -1,3 +1,4 @@
+const std = @import("std");
 const hittable = @import("hittable.zig");
 const vec3 = @import("vec3.zig");
 const ray = @import("ray.zig");
@@ -25,6 +26,9 @@ pub fn Sphere(comptime T: type) type {
             const c = length_squared(T, oc) - self.radius * self.radius;
 
             const discriminant = half_b * half_b - a * c;
+            if (discriminant < 0) {
+                return false;
+            }
             const sqrtd = @sqrt(discriminant);
             const t_min = hit_parameters.t_min;
             const t_max = hit_parameters.t_max;
