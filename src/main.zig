@@ -13,6 +13,7 @@ const hittable_list = @import("hittable_list.zig");
 const sphere = @import("sphere.zig");
 const color = @import("color.zig");
 const camera = @import("camera.zig");
+const material = @import("material.zig");
 
 const Camera = camera.Camera;
 const write_color = color.write_color;
@@ -31,6 +32,9 @@ const HitRecord = hittable.HitRecord;
 const Hittable = hittable.Hittable;
 const HittableList = hittable_list.HittableList;
 const HitParameters = hittable.HitParameters;
+const Material = material.Material;
+const Lambertian = material.Lambertian;
+const Metal = material.Metal;
 
 const unit_vector = vec3.unit_vector;
 const scale = vec3.scale;
@@ -45,18 +49,17 @@ fn ray_color(comptime T: type, r: *Ray(T), world: *Hittable(T), depth: i32, rand
     }
     var rec: HitRecord(T) = undefined;
     if (world.hit(r.*, 0.001, inf(T), &rec)) {
+        var scattered: Ray(T) = undefined;
+        var attenuation: Color(T) = undefined;
+        if (rec.mat_ptr.scatter(r, &rec, &attenuation, &scattered, rand)) {
+            return scale(T, attenuation, ray_color(T, &scattered, world, depth - 1, rand));
+        }
         const target: Point3(T) = rec.p + random_in_hemisphere(rec.normal, rand);
         var ri = Ray_init(T, rec.p, target - rec.p);
         const rc = ray_color(T, &ri, world, depth - 1, rand);
         return scale(T, @as(T, 0.5), rc);
     }
-
-    const unit_direction = unit_vector(T, r.dir);
-    const t = 0.5 * (unit_direction[1] + 1.0);
-    const gray = scale(T, 1.0 - t, Color(T){ 1.0, 1.0, 1.0 });
-    const blue = scale(T, t, Color(T){ 0.5, 0.7, 1.0 });
-    const final_color = gray + blue;
-    return final_color;
+    return Color(T){ 0, 0, 0 };
 }
 
 pub fn main() anyerror!void {
@@ -78,9 +81,12 @@ pub fn main() anyerror!void {
     // start with a general purpose allocator
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
+    var allocator = gpa.allocator();
 
     // initialize array list for storing `Hittable(T)` objects
+    // TODO: Fix this error:
+    // error: unable to evaluate constant expression
+    //    var objects = ArrayList(*(Hittable(f32))).init(allocator);
     var objects = ArrayList(*(Hittable(f32))).init(allocator);
     defer objects.deinit();
 
@@ -88,35 +94,46 @@ pub fn main() anyerror!void {
     var world_hlist: HittableList(f32) = .{ .objects = objects };
     defer world_hlist.objects.deinit();
 
-    // the world has two spheres, a small one and a large one
-    // Initialize the small sphere first
-    // const small_sphere_allocd = try allocator.alloc(Sphere(f32), 1);
-    // defer allocator.free(small_sphere_allocd);
+    const lamb_ground: Lambertian(f32) = .{ .albedo = Color(f32){ 0.8, 0.8, 0.0 } };
+    const lamb_center: Lambertian(f32) = .{ .albedo = Color(f32){ 0.7, 0.3, 0.3 } };
+    const metal_right: Metal(f32) = .{ .albedo = Color(f32){ 0.8, 0.6, 0.2 } };
+    const metal_left: Metal(f32) = .{ .albedo = Color(f32){ 0.8, 0.8, 0.8 } };
 
-    // Initialize and add the sphere to the array_list of objects in the world
-    // const small_sphere_ptr = @ptrCast(*(Sphere(f32)), small_sphere_allocd);
-    // TODO: create an init function
-    // small_sphere_ptr.center = Point3(f32){ 0, 0, -1 };
-    // small_sphere_ptr.radius = @as(f32, 0.5);
-    var small_sphere: Sphere(f32) = .{
-        .center = Point3(f32){ 0, 0, -1 },
-        .radius = @as(f32, 0.5),
-    };
-    var small_sphere_hittable = Hittable(f32).make(&small_sphere);
-    try world_hlist.add(&small_sphere_hittable);
+    const mat_ground = Material.make(&lamb_ground);
+    const mat_left = Material.make(&metal_left);
+    const mat_center = Material.make(&lamb_center);
+    const mat_right = Material.make(&metal_right);
 
-    // same for the larger sphere
-    // const large_sphere_allocd = try allocator.alloc(Sphere(f32), 1);
-    // defer allocator.free(large_sphere_allocd);
-    // const large_sphere_ptr = @ptrCast(*(Sphere(f32)), large_sphere_allocd);
-    // large_sphere_ptr.center = Point3(f32){ 0, -100.5, -1 };
-    // large_sphere_ptr.radius = @as(f32, 100);
-    var large_sphere: Sphere(f32) = .{
-        .center = Point3(f32){ 0, -100.5, -1 },
-        .radius = @as(f32, 100),
+    const ground_sphere: Sphere(f32) = .{
+        .center = Point3(f32){ 0.0, -100.5, -1.0 },
+        .radius = 100.0,
+        .mat_ptr = &mat_ground,
     };
-    var large_sphere_hittable = Hittable(f32).make(&large_sphere);
-    try world_hlist.add(&large_sphere_hittable);
+    const center_sphere: Sphere(f32) = .{
+        .center = Point3(f32){ 0.0, 0.0, -1.0 },
+        .radius = 0.5,
+        .mat_ptr = &mat_center,
+    };
+    const left_sphere: Sphere(f32) = .{
+        .center = Point3(f32){ -1.0, 0.0, -1.0 },
+        .radius = 0.5,
+        .mat_ptr = &mat_left,
+    };
+    const right_sphere: Sphere(f32) = .{
+        .center = Point3(f32){ 1.0, 0.0, -1.0 },
+        .radius = 0.5,
+        .mat_ptr = &mat_right,
+    };
+
+    const ground_sphere_hittable = Hittable.make(&ground_sphere);
+    const center_sphere_hittable = Hittable.make(&center_sphere);
+    const left_sphere_hittable = Hittable.make(&left_sphere);
+    const right_sphere_hittable = Hittable.make(&right_sphere);
+
+    try world_hlist.add(&ground_sphere_hittable);
+    try world_hlist.add(&center_sphere_hittable);
+    try world_hlist.add(&left_sphere_hittable);
+    try world_hlist.add(&right_sphere_hittable);
 
     // make a Hittable(f32) out of the HittableList(f32) object that is the world
     var world = Hittable(f32).make(&world_hlist);

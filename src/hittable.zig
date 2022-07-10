@@ -7,6 +7,7 @@ const Point3 = vec3.Point3;
 const Vec3 = vec3.Vec3;
 const dot = vec3.dot;
 const Ray = ray.Ray;
+const Material = @import("material.zig").Material;
 
 // Ladies and gentlemen, runtime polymorphism. Check out the following lovely showtime
 // https://www.youtube.com/watch?v=AHc4x1uXBQE&t=2126s
@@ -18,6 +19,7 @@ pub fn HitRecord(comptime T: type) type {
     return struct {
         p: Point3(T),
         normal: Vec3(T),
+        mat_ptr: *Material(T),
         t: T,
         front_face: bool,
 

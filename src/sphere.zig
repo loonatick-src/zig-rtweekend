@@ -11,11 +11,14 @@ const dot = vec3.dot;
 const length_squared = vec3.length_squared;
 const HitRecord = hittable.HitRecord;
 const Hittable = hittable.Hittable;
+const Material = @import("material.zig").Material;
 
 pub fn Sphere(comptime T: type) type {
     return struct {
+        const Self = @This();
         center: Point3(T),
         radius: T,
+        mat_ptr: *Material(T),
 
         pub fn hit(self: *@This(), r: Ray(T), t_min: T, t_max: T, rec: *(HitRecord(T))) bool {
             const oc = r.orig - self.center;
@@ -36,8 +39,17 @@ pub fn Sphere(comptime T: type) type {
             rec.p = r.at(rec.t);
             const outward_normal: Vec3(T) = scale(T, 1 / self.radius, rec.p - self.center);
             rec.set_face_normal(r, outward_normal);
+            rec.mat_ptr = self.mat_ptr;
 
             return true;
+        }
+
+        pub fn init(cen: Point3(T), r: T, m: *Material) Self {
+            return .{
+                .center = cen,
+                .radius = r,
+                .m = m,
+            };
         }
     };
 }

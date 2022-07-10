@@ -40,6 +40,15 @@ pub fn length_squared(comptime T: type, v: Vec3(T)) T {
     return dot(T, v, v);
 }
 
+pub fn near_zero(comptime T: type, v: Vec3(T)) bool {
+    const tol: T = 1.0e-8;
+    return (@fabs(v[0]) < tol) and (@fabs(v[1]) < tol) and (@fabs(v[2]) < tol);
+}
+
+pub fn reclect(comptime T: type, v: Vec3(T), n: Vec3(T)) Vec3(T) {
+    return v - scale(T, 2 * dot(T, v, n), n);
+}
+
 pub fn RandFloatFn(comptime T: type) type {
     return struct {
         const Self = @This();
