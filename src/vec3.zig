@@ -1,5 +1,6 @@
 const std = @import("std");
 const expectEqual = std.testing.expectEqual;
+const expect = std.testing.expect;
 
 const Vector = std.meta.Vector;
 
@@ -8,6 +9,7 @@ pub fn Vec3(comptime T: type) type {
     return Vector(3, T);
 }
 
+// TODO: deprecate
 pub fn Vec3_init(comptime T: type, x: T, y: T, z: T) Vector(3, T) {
     return Vector(3, T){ x, y, z };
 }
@@ -39,9 +41,43 @@ pub fn length_squared(comptime T: type, v: Vec3(T)) T {
     return dot(T, v, v);
 }
 
+pub fn RandFloatFn(comptime T: type) type {
+    return struct {
+        const Self = @This();
+        pub fn random(rand: anytype) T {
+            return rand.float(T);
+        }
+
+        pub fn random_scaled(min: T, max: T, rand: anytype) T {
+            const rv = Self.random(rand);
+            return min + (max - min) * rv;
+        }
+    };
+}
+
+pub fn RandVecFn(comptime T: type) type {
+    const Self = @This();
+    return struct {
+        fn random(rand: anytype) Vec3(T) {
+            return Vec3(T){ rand.float(T), rand.float(T), rand.float(T) };
+        }
+
+        pub fn random_scaled(min: T, max: T, rand: anytype) T {
+            // TODO: are there better ways of broadcasting a scalar
+            // into a vector?
+            const s = (max - min);
+            const nrv = Self.random(rand);
+            const base = Vec3(T){ min, min, min };
+            const sv = Vec3(T){ s, s, s };
+            return base + sv * nrv;
+        }
+    };
+}
+
 pub const Point3 = Vec3;
 pub const Color = Vec3;
 
+// TODO: deprecate these
 pub const Point3_init = Vec3_init;
 pub const Color_init = Vec3_init;
 
@@ -64,4 +100,26 @@ test "Builtin Vector tests" {
     const t = 2.5;
     const scale_result: Vec3(f32) = [_]f32{ t * x, t * y, t * z };
     try expectEqual(scale_result, scale(f32, t, v1));
+}
+
+test "RNG functions" {
+    const rf_funcs = RandFloatFn(f32);
+    const random_float = rf_funcs.random;
+
+    var prng = std.rand.DefaultPrng.init(blk: {
+        var seed: u64 = undefined;
+        try std.os.getrandom(std.mem.asBytes(&seed));
+        break :blk seed;
+    });
+    const rand = prng.random();
+
+    const rf32 = random_float(rand);
+    try expect((0 < rf32) and (rf32 < 1));
+
+    const random_float_scaled = rf_funcs.random_scaled;
+    const min = -1.0;
+    const max = 3.0;
+    const rand_scaled = random_float_scaled(min, max, rand);
+
+    try expect((rand_scaled > min) and (rand_scaled < max));
 }

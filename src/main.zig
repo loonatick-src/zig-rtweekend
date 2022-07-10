@@ -14,8 +14,6 @@ const sphere = @import("sphere.zig");
 const color = @import("color.zig");
 const camera = @import("camera.zig");
 
-const random_float = rtweekend.random_float;
-
 const Camera = camera.Camera;
 const write_color = color.write_color;
 const Sphere = sphere.Sphere;
@@ -37,6 +35,8 @@ const HitParameters = hittable.HitParameters;
 const unit_vector = vec3.unit_vector;
 const scale = vec3.scale;
 const buffer_size: usize = 4096;
+
+const random_float = vec3.RandFloatFn(f32).random;
 
 fn ray_color(comptime T: type, r: *Ray(T), world: *Hittable(T)) Color(T) {
     var rec: HitRecord(T) = undefined;
@@ -133,8 +133,8 @@ pub fn main() anyerror!void {
             var pixel_color = Color(f32){ 0, 0, 0 };
             var s: i32 = 0;
             while (s < samples_per_pixel) : (s += 1) {
-                const u = (@intToFloat(f32, i) + random_float(f32, rand)) / dw;
-                const v = (@intToFloat(f32, j) + random_float(f32, rand)) / dh;
+                const u = (@intToFloat(f32, i) + random_float(rand)) / dw;
+                const v = (@intToFloat(f32, j) + random_float(rand)) / dh;
                 var r = cam.get_ray(u, v);
                 pixel_color += ray_color(f32, &r, &world);
             }
