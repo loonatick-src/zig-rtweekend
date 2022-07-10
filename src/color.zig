@@ -1,16 +1,29 @@
 const std = @import("std");
 const vec3 = @import("vec3.zig");
-const clamp_vec3 = @import("rtweekend.zig").clamp_vec3;
 const scale = vec3.scale;
 const Color = vec3.Color;
 
+const clamp = @import("rtweekend.zig").clamp;
+
 // clamp(comptime T: type, x: T, lo: T, hi: T) T {
+
+fn pgm_scale(comptime T: type, c: T) i32 {
+    return @floatToInt(i32, 256 * clamp(T, c, 0.0, 0.999));
+}
+
 pub fn write_color(comptime WriterType: type, out: WriterType, comptime T: type, pixel_color: Color(T), samples_per_pixel: i32) !void {
-    const a: T = 1.0 / @intToFloat(T, samples_per_pixel);
-    const scaled_color = scale(T, a, pixel_color);
-    const clamped_color = clamp_vec3(T, scaled_color, 0, 0.999);
-    const r = @floatToInt(i32, clamped_color[0] * 255.999);
-    const g = @floatToInt(i32, clamped_color[1] * 255.999);
-    const b = @floatToInt(i32, clamped_color[2] * 255.999);
+    var rf = pixel_color[0];
+    var gf = pixel_color[1];
+    var bf = pixel_color[2];
+
+    const s = 1.0 / @intToFloat(T, samples_per_pixel);
+    rf = @sqrt(s * rf);
+    gf = @sqrt(s * gf);
+    bf = @sqrt(s * bf);
+
+    const r = pgm_scale(T, rf);
+    const g = pgm_scale(T, gf);
+    const b = pgm_scale(T, bf);
+
     try out.print("{} {} {}\n", .{ r, g, b });
 }
