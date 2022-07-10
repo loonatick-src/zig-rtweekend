@@ -8,7 +8,7 @@ const Vec3 = vec3.Vec3;
 const dot = vec3.dot;
 const Ray = ray.Ray;
 
-// Gentlemen, runtime polymorphism, check out the following lovely showtime
+// Ladies and gentlemen, runtime polymorphism. Check out the following lovely showtime
 // https://www.youtube.com/watch?v=AHc4x1uXBQE&t=2126s
 // With my understanding of Zig at the time of working on this project, I
 // highly doubt I could have come up with this on my own.

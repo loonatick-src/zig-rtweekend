@@ -37,11 +37,18 @@ const scale = vec3.scale;
 const buffer_size: usize = 4096;
 
 const random_float = vec3.RandFloatFn(f32).random;
+const random_in_unit_sphere = vec3.RandVecFn(f32).random_in_unit_sphere;
 
-fn ray_color(comptime T: type, r: *Ray(T), world: *Hittable(T)) Color(T) {
+fn ray_color(comptime T: type, r: *Ray(T), world: *Hittable(T), depth: i32, rand: anytype) Color(T) {
+    if (depth <= 0) {
+        return Color(T){ 0, 0, 0 };
+    }
     var rec: HitRecord(T) = undefined;
     if (world.hit(r.*, 0, inf(T), &rec)) {
-        return scale(T, @as(T, 0.5), rec.normal + Color(T){ 1, 1, 1 });
+        const target: Point3(T) = rec.p + rec.normal + random_in_unit_sphere(rand);
+        var ri = Ray_init(T, rec.p, target - rec.p);
+        const rc = ray_color(T, &ri, world, depth - 1, rand);
+        return scale(T, @as(T, 0.5), rc);
     }
 
     const unit_direction = unit_vector(T, r.dir);
@@ -126,6 +133,7 @@ pub fn main() anyerror!void {
 
     const dw = @as(f32, image_width - 1);
     const dh = @as(f32, image_height - 1);
+    const max_depth: i32 = 50;
     while (j >= 0) : (j -= 1) {
         std.debug.print("{} out of {} lines remaining\n", .{ j + 1, image_height });
         var i: i32 = 0;
@@ -136,7 +144,7 @@ pub fn main() anyerror!void {
                 const u = (@intToFloat(f32, i) + random_float(rand)) / dw;
                 const v = (@intToFloat(f32, j) + random_float(rand)) / dh;
                 var r = cam.get_ray(u, v);
-                pixel_color += ray_color(f32, &r, &world);
+                pixel_color += ray_color(f32, &r, &world, max_depth, rand);
             }
             try write_color(@TypeOf(bufout), bufout, f32, pixel_color, samples_per_pixel);
         }

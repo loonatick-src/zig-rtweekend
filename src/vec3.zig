@@ -4,7 +4,6 @@ const expect = std.testing.expect;
 
 const Vector = std.meta.Vector;
 
-// looks ugly
 pub fn Vec3(comptime T: type) type {
     return Vector(3, T);
 }
@@ -56,8 +55,8 @@ pub fn RandFloatFn(comptime T: type) type {
 }
 
 pub fn RandVecFn(comptime T: type) type {
-    const Self = @This();
     return struct {
+        const Self = @This();
         fn random(rand: anytype) Vec3(T) {
             return Vec3(T){ rand.float(T), rand.float(T), rand.float(T) };
         }
@@ -70,6 +69,16 @@ pub fn RandVecFn(comptime T: type) type {
             const base = Vec3(T){ min, min, min };
             const sv = Vec3(T){ s, s, s };
             return base + sv * nrv;
+        }
+
+        pub fn random_in_unit_sphere(rand: anytype) Vec3(T) {
+            const x = RandFloatFn(T).random(rand);
+            const ylim_sq = 1 - x * x;
+            const ylim = @sqrt(ylim_sq);
+            const y = RandFloatFn(T).random_scaled(-ylim, ylim, rand);
+            const zlim = @sqrt(ylim_sq - y * y);
+            const z = RandFloatFn(T).random_scaled(-zlim, zlim, rand);
+            return Vec3(T){ x, y, z };
         }
     };
 }
