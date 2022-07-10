@@ -44,7 +44,7 @@ fn ray_color(comptime T: type, r: *Ray(T), world: *Hittable(T), depth: i32, rand
         return Color(T){ 0, 0, 0 };
     }
     var rec: HitRecord(T) = undefined;
-    if (world.hit(r.*, 0, inf(T), &rec)) {
+    if (world.hit(r.*, 0.001, inf(T), &rec)) {
         const target: Point3(T) = rec.p + rec.normal + random_in_unit_sphere(rand);
         var ri = Ray_init(T, rec.p, target - rec.p);
         const rc = ray_color(T, &ri, world, depth - 1, rand);
