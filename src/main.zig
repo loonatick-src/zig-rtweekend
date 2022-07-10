@@ -37,7 +37,7 @@ const scale = vec3.scale;
 const buffer_size: usize = 4096;
 
 const random_float = vec3.RandFloatFn(f32).random;
-const random_in_unit_sphere = vec3.RandVecFn(f32).random_in_unit_sphere;
+const random_unit_vector = vec3.RandVecFn(f32).random_unit_vector;
 
 fn ray_color(comptime T: type, r: *Ray(T), world: *Hittable(T), depth: i32, rand: anytype) Color(T) {
     if (depth <= 0) {
@@ -45,7 +45,7 @@ fn ray_color(comptime T: type, r: *Ray(T), world: *Hittable(T), depth: i32, rand
     }
     var rec: HitRecord(T) = undefined;
     if (world.hit(r.*, 0.001, inf(T), &rec)) {
-        const target: Point3(T) = rec.p + rec.normal + random_in_unit_sphere(rand);
+        const target: Point3(T) = rec.p + rec.normal + random_unit_vector(rand);
         var ri = Ray_init(T, rec.p, target - rec.p);
         const rc = ray_color(T, &ri, world, depth - 1, rand);
         return scale(T, @as(T, 0.5), rc);

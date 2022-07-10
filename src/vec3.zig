@@ -80,6 +80,10 @@ pub fn RandVecFn(comptime T: type) type {
             const z = RandFloatFn(T).random_scaled(-zlim, zlim, rand);
             return Vec3(T){ x, y, z };
         }
+
+        pub fn random_unit_vector(rand: anytype) Vec3(T) {
+            return unit_vector(T, random_in_unit_sphere(rand));
+        }
     };
 }
 
