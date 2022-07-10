@@ -84,15 +84,20 @@ pub fn RandVecFn(comptime T: type) type {
         pub fn random_unit_vector(rand: anytype) Vec3(T) {
             return unit_vector(T, random_in_unit_sphere(rand));
         }
+
+        pub fn random_in_hemisphere(normal: Vec3(T), rand: anytype) Vec3(T) {
+            const in_unit_sphere = Self.random_in_unit_sphere(rand);
+            if (dot(T, in_unit_sphere, normal) > 0.0) {
+                return in_unit_sphere;
+            } else {
+                return -in_unit_sphere;
+            }
+        }
     };
 }
 
 pub const Point3 = Vec3;
 pub const Color = Vec3;
-
-// TODO: deprecate these
-pub const Point3_init = Vec3_init;
-pub const Color_init = Vec3_init;
 
 test "Builtin Vector tests" {
     // how to float literal?
@@ -101,8 +106,8 @@ test "Builtin Vector tests" {
     const z = @as(f32, 3.3);
     const w = @as(f32, 4.4);
 
-    const v1 = Vec3_init(f32, x, y, z);
-    const v2 = Vec3_init(f32, y, z, w);
+    const v1 = Vec3(f32){ x, y, z };
+    const v2 = Vec3(f32){ y, z, w };
 
     const add_result: Vec3(f32) = [_]f32{ x + y, y + z, z + w };
     try expectEqual(v1 + v2, add_result);
