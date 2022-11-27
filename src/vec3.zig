@@ -4,40 +4,33 @@ const expect = std.testing.expect;
 
 const Vector = std.meta.Vector;
 
-pub fn Vec3(comptime T: type) type {
-    return Vector(3, T);
+pub const Vec3 = Vector(3, f32);
+
+pub fn scale(t: f32, v: Vec3) Vec3 {
+    return [_]f32{ t * v[0], t * v[1], t * v[2] };
 }
 
-// TODO: deprecate
-pub fn Vec3_init(comptime T: type, x: T, y: T, z: T) Vector(3, T) {
-    return Vector(3, T){ x, y, z };
-}
-
-pub fn scale(comptime T: type, t: T, v: Vec3(T)) Vec3(T) {
-    return [_]T{ t * v[0], t * v[1], t * v[2] };
-}
-
-pub fn dot(comptime T: type, v1: Vec3(T), v2: Vec3(T)) T {
+pub fn dot(v1: Vec3, v2: Vec3) f32 {
     return @reduce(.Add, v1 * v2);
 }
 
-pub fn cross(comptime T: type, v1: Vec3(T), v2: Vec3(T)) Vec3(T) {
+pub fn cross(v1: Vec3, v2: Vec3) Vec3 {
     // 12 - 21, 20 - 02, 01 - 10
-    return [_]T{ v1[1] * v2[2] - v1[2] * v2[1], v1[2] * v2[0] - v1[0] * v2[2], v1[0] * v2[1] - v1[1] * v2[0] };
+    return [_]f32{ v1[1] * v2[2] - v1[2] * v2[1], v1[2] * v2[0] - v1[0] * v2[2], v1[0] * v2[1] - v1[1] * v2[0] };
 }
 
-pub fn magnitude(comptime T: type, v: Vec3(T)) T {
-    return @sqrt(dot(T, v, v));
+pub fn magnitude(v: Vec3) f32 {
+    return @sqrt(dot(v, v));
 }
 
-pub fn unit_vector(comptime T: type, v: Vec3(T)) Vec3(T) {
-    const m: T = magnitude(T, v);
-    const rv: Vec3(T) = scale(T, 1.0 / m, v);
+pub fn unit_vector(v: Vec3) Vec3 {
+    const m: f32 = magnitude(v);
+    const rv: Vec3 = scale(1.0 / m, v);
     return rv;
 }
 
-pub fn length_squared(comptime T: type, v: Vec3(T)) T {
-    return dot(T, v, v);
+pub fn length_squared(v: Vec3) f32 {
+    return dot(v, v);
 }
 
 pub fn RandFloatFn(comptime T: type) type {
@@ -57,8 +50,8 @@ pub fn RandFloatFn(comptime T: type) type {
 pub fn RandVecFn(comptime T: type) type {
     return struct {
         const Self = @This();
-        fn random(rand: anytype) Vec3(T) {
-            return Vec3(T){ rand.float(T), rand.float(T), rand.float(T) };
+        fn random(rand: anytype) Vec3 {
+            return Vec3{ rand.float(T), rand.float(T), rand.float(T) };
         }
 
         pub fn random_scaled(min: T, max: T, rand: anytype) T {
@@ -66,28 +59,28 @@ pub fn RandVecFn(comptime T: type) type {
             // into a vector?
             const s = (max - min);
             const nrv = Self.random(rand);
-            const base = Vec3(T){ min, min, min };
-            const sv = Vec3(T){ s, s, s };
+            const base = Vec3{ min, min, min };
+            const sv = Vec3{ s, s, s };
             return base + sv * nrv;
         }
 
-        pub fn random_in_unit_sphere(rand: anytype) Vec3(T) {
+        pub fn random_in_unit_sphere(rand: anytype) Vec3 {
             const x = RandFloatFn(T).random(rand);
             const ylim_sq = 1 - x * x;
             const ylim = @sqrt(ylim_sq);
             const y = RandFloatFn(T).random_scaled(-ylim, ylim, rand);
             const zlim = @sqrt(ylim_sq - y * y);
             const z = RandFloatFn(T).random_scaled(-zlim, zlim, rand);
-            return Vec3(T){ x, y, z };
+            return Vec3{ x, y, z };
         }
 
-        pub fn random_unit_vector(rand: anytype) Vec3(T) {
-            return unit_vector(T, random_in_unit_sphere(rand));
+        pub fn random_unit_vector(rand: anytype) Vec3 {
+            return unit_vector(random_in_unit_sphere(rand));
         }
 
-        pub fn random_in_hemisphere(normal: Vec3(T), rand: anytype) Vec3(T) {
+        pub fn random_in_hemisphere(normal: Vec3, rand: anytype) Vec3 {
             const in_unit_sphere = Self.random_in_unit_sphere(rand);
-            if (dot(T, in_unit_sphere, normal) > 0.0) {
+            if (dot(in_unit_sphere, normal) > 0.0) {
                 return in_unit_sphere;
             } else {
                 return -in_unit_sphere;

@@ -14,46 +14,42 @@ const Ray = ray.Ray;
 // highly doubt I could have come up with this on my own.
 // Kind of excited about the future of comptime
 
-pub fn HitRecord(comptime T: type) type {
-    return struct {
-        p: Point3(T),
-        normal: Vec3(T),
-        t: T,
-        front_face: bool,
+pub const HitRecord = struct {
+    p: Point3,
+    normal: Vec3,
+    t: f32,
+    front_face: bool,
 
-        pub fn set_face_normal(self: *@This(), r: Ray(T), outward_normal: Vec3(T)) void {
-            const front_face = dot(T, r.dir, outward_normal) < 0;
-            self.normal = outward_normal;
-            if (!front_face) {
-                self.normal = (Vec3(T){ 0, 0, 0 }) - outward_normal;
-            }
+    pub fn set_face_normal(self: *@This(), r: Ray, outward_normal: Vec3) void {
+        const front_face = dot(r.dir, outward_normal) < 0;
+        self.normal = outward_normal;
+        if (!front_face) {
+            self.normal = (Vec3{ 0, 0, 0 }) - outward_normal;
         }
-    };
-}
+    }
+};
 
-pub fn Hittable(comptime T: type) type {
-    return struct {
-        const VTable = struct { hit: fn (usize, r: Ray(T), t_min: T, t_max: T, rec: *HitRecord(T)) bool };
-        vtable: *const VTable,
-        object: usize,
+pub const Hittable = struct {
+    const VTable = struct { hit: fn (usize, r: Ray, t_min: f32, t_max: f32, rec: *HitRecord) bool };
+    vtable: *const VTable,
+    object: usize,
 
-        pub fn hit(self: @This(), r: Ray(T), t_min: T, t_max: T, rec: *HitRecord(T)) bool {
-            return self.vtable.hit(self.object, r, t_min, t_max, rec);
-        }
+    pub fn hit(self: @This(), r: Ray, t_min: f32, t_max: f32, rec: *HitRecord) bool {
+        return self.vtable.hit(self.object, r, t_min, t_max, rec);
+    }
 
-        pub fn make(obj: anytype) @This() {
-            const PtrType = @TypeOf(obj);
-            return .{
-                .vtable = &comptime VTable{
-                    .hit = struct {
-                        pub fn hit(ptr: usize, r: Ray(T), t_min: T, t_max: T, rec: *HitRecord(T)) bool {
-                            const self = @intToPtr(PtrType, ptr);
-                            return @call(.{ .modifier = .always_inline }, std.meta.Child(PtrType).hit, .{ self, r, t_min, t_max, rec });
-                        } // fn hit
-                    }.hit, // .hit
-                }, // .vtable
-                .object = @ptrToInt(obj),
-            };
-        } // fn make
-    };
-}
+    pub fn make(obj: anytype) @This() {
+        const PtrType = @TypeOf(obj);
+        return .{
+            .vtable = &comptime VTable{
+                .hit = struct {
+                    pub fn hit(ptr: usize, r: Ray, t_min: f32, t_max: f32, rec: *HitRecord) bool {
+                        const self = @intToPtr(PtrType, ptr);
+                        return @call(.{ .modifier = .always_inline }, std.meta.Child(PtrType).hit, .{ self, r, t_min, t_max, rec });
+                    } // fn hit
+                }.hit, // .hit
+            }, // .vtable
+            .object = @ptrToInt(obj),
+        };
+    } // fn make
+};
