@@ -1,4 +1,6 @@
 const std = @import("std");
+const rand = std.rand;
+
 const expectEqual = std.testing.expectEqual;
 const expect = std.testing.expect;
 
@@ -6,8 +8,17 @@ const Vector = std.meta.Vector;
 
 pub const Vec3 = Vector(3, f32);
 
+pub fn near_zero(self: *Vec3) bool {
+    const abstol: f32 = 1.0e-8;
+    return @fabs(self[0]) < abstol and @fabs(self[1]) < abstol and @fabs(self[2]) < abstol;
+}
+
+pub fn reflect(v: *Vec3, n: *Vec3) Vec3 {
+    return v - scale(2 * dot(v, n), n);
+}
+
 pub fn scale(t: f32, v: Vec3) Vec3 {
-    return [_]f32{ t * v[0], t * v[1], t * v[2] };
+    return Vec3{ t * v[0], t * v[1], t * v[2] };
 }
 
 pub fn dot(v1: Vec3, v2: Vec3) f32 {
@@ -31,62 +42,6 @@ pub fn unit_vector(v: Vec3) Vec3 {
 
 pub fn length_squared(v: Vec3) f32 {
     return dot(v, v);
-}
-
-pub fn RandFloatFn(comptime T: type) type {
-    return struct {
-        const Self = @This();
-        pub fn random(rand: anytype) T {
-            return rand.float(T);
-        }
-
-        pub fn random_scaled(min: T, max: T, rand: anytype) T {
-            const rv = Self.random(rand);
-            return min + (max - min) * rv;
-        }
-    };
-}
-
-pub fn RandVecFn(comptime T: type) type {
-    return struct {
-        const Self = @This();
-        fn random(rand: anytype) Vec3 {
-            return Vec3{ rand.float(T), rand.float(T), rand.float(T) };
-        }
-
-        pub fn random_scaled(min: T, max: T, rand: anytype) T {
-            // TODO: are there better ways of broadcasting a scalar
-            // into a vector?
-            const s = (max - min);
-            const nrv = Self.random(rand);
-            const base = Vec3{ min, min, min };
-            const sv = Vec3{ s, s, s };
-            return base + sv * nrv;
-        }
-
-        pub fn random_in_unit_sphere(rand: anytype) Vec3 {
-            const x = RandFloatFn(T).random(rand);
-            const ylim_sq = 1 - x * x;
-            const ylim = @sqrt(ylim_sq);
-            const y = RandFloatFn(T).random_scaled(-ylim, ylim, rand);
-            const zlim = @sqrt(ylim_sq - y * y);
-            const z = RandFloatFn(T).random_scaled(-zlim, zlim, rand);
-            return Vec3{ x, y, z };
-        }
-
-        pub fn random_unit_vector(rand: anytype) Vec3 {
-            return unit_vector(random_in_unit_sphere(rand));
-        }
-
-        pub fn random_in_hemisphere(normal: Vec3, rand: anytype) Vec3 {
-            const in_unit_sphere = Self.random_in_unit_sphere(rand);
-            if (dot(in_unit_sphere, normal) > 0.0) {
-                return in_unit_sphere;
-            } else {
-                return -in_unit_sphere;
-            }
-        }
-    };
 }
 
 pub const Point3 = Vec3;
@@ -113,24 +68,43 @@ test "Builtin Vector tests" {
     try expectEqual(scale_result, scale(f32, t, v1));
 }
 
+pub fn random(rng: rand.Random) f32 {
+    return rng.float(f32);
+}
+
+pub fn random_scaled(rng: rand.Random, lo: f32, hi: f32) f32 {
+    const r = random(rng);
+    return lo + (hi - lo) * r;
+}
+
+pub fn random_in_unit_sphere(rng: rand.Random) Vec3 {
+    const x = rng.float(f32);
+    const ylim_sq = 1 - x * x;
+    const ylim = @sqrt(ylim_sq);
+    const y = random_scaled(rng, -ylim, ylim);
+    const zlim = @sqrt(ylim_sq - y * y);
+    const z = random_scaled(rng, -zlim, zlim);
+    return Vec3{ x, y, z };
+}
+
+pub fn random_in_hemisphere(rng: rand.Random, normal: Vec3) Vec3 {
+    const in_unit_sphere = random_in_unit_sphere(rng);
+    if (dot(in_unit_sphere, normal) > 0.0) {
+        return in_unit_sphere;
+    } else {
+        return -in_unit_sphere;
+    }
+}
+
 test "RNG functions" {
-    const rf_funcs = RandFloatFn(f32);
-    const random_float = rf_funcs.random;
+    const seed: u64 = 1337;
+    const default_rng = rand.DefaultPrng.init(seed);
+    var rng = default_rng.random();
 
-    var prng = std.rand.DefaultPrng.init(blk: {
-        var seed: u64 = undefined;
-        try std.os.getrandom(std.mem.asBytes(&seed));
-        break :blk seed;
-    });
-    const rand = prng.random();
-
-    const rf32 = random_float(rand);
-    try expect((0 < rf32) and (rf32 < 1));
-
-    const random_float_scaled = rf_funcs.random_scaled;
-    const min = -1.0;
-    const max = 3.0;
-    const rand_scaled = random_float_scaled(min, max, rand);
-
-    try expect((rand_scaled > min) and (rand_scaled < max));
+    const r01 = random(rng);
+    try expect(r01 < 1.0 and r01 >= 0.0);
+    const lo = -5.0;
+    const hi = 3.0;
+    const r_lo_hi = random_scaled(rng, lo, hi);
+    try expect(r_lo_hi >= lo and r_lo_hi < hi);
 }

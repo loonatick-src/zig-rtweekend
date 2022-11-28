@@ -10,13 +10,12 @@ const Hittable = hittable.Hittable;
 const HitParameters = hittable.HitParameters;
 const HitRecord = hittable.HitRecord;
 
-// TODO: the rest of the owl
 pub const HittableList = struct {
     // the original code uses shared pointers,
     // but the objects are all const, so we don't
     // need atomic refcounting. Also we are confident in our ability
     // to manage memory manually in such a simple application.
-    objects: std.ArrayList(*(Hittable)),
+    objects: std.ArrayList(*Hittable),
 
     pub fn hit(self: *@This(), r: Ray, t_min: f32, t_max: f32, rec: *HitRecord) bool {
         var temp_rec: HitRecord = rec.*; // copy values instead of undefined
@@ -34,7 +33,7 @@ pub const HittableList = struct {
         return hit_anything;
     }
 
-    pub fn add(self: *@This(), obj: *(Hittable)) !void {
+    pub fn add(self: *@This(), obj: *Hittable) !void {
         try self.objects.append(obj);
     }
 };

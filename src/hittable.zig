@@ -1,22 +1,24 @@
 const std = @import("std");
 const ray = @import("ray.zig");
 const vec3 = @import("vec3.zig");
+const material = @import("material.zig");
+
 const inf = std.math.inf;
 
 const Point3 = vec3.Point3;
 const Vec3 = vec3.Vec3;
 const dot = vec3.dot;
 const Ray = ray.Ray;
+const Material = material.Material;
 
 // Ladies and gentlemen, runtime polymorphism. Check out the following lovely showtime
 // https://www.youtube.com/watch?v=AHc4x1uXBQE&t=2126s
 // With my understanding of Zig at the time of working on this project, I
 // highly doubt I could have come up with this on my own.
-// Kind of excited about the future of comptime
-
 pub const HitRecord = struct {
     p: Point3,
     normal: Vec3,
+    mat_ptr: *Material,
     t: f32,
     front_face: bool,
 

@@ -1,4 +1,5 @@
 const std = @import("std");
+const rand = std.rand;
 
 const ArrayList = std.ArrayList;
 const File = std.fs.File;
@@ -10,6 +11,7 @@ const rtweekend = @import("rtweekend.zig");
 const ray = @import("ray.zig");
 const hittable = @import("hittable.zig");
 const hittable_list = @import("hittable_list.zig");
+const material = @import("material.zig");
 const sphere = @import("sphere.zig");
 const color = @import("color.zig");
 const camera = @import("camera.zig");
@@ -27,24 +29,24 @@ const HitRecord = hittable.HitRecord;
 const Hittable = hittable.Hittable;
 const HittableList = hittable_list.HittableList;
 const HitParameters = hittable.HitParameters;
+const Material = material.Material;
 
 const unit_vector = vec3.unit_vector;
 const scale = vec3.scale;
 const buffer_size: usize = 4096;
 
-const random_float = vec3.RandFloatFn(f32).random;
-const random_in_hemisphere = vec3.RandVecFn(f32).random_in_hemisphere;
-
-fn ray_color(r: *Ray, world: *Hittable, depth: i32, rand: anytype) Color {
+fn ray_color(r: *Ray, world: *Hittable, depth: i32, rng: rand.Random) Color {
     if (depth <= 0) {
         return Color{ 0, 0, 0 };
     }
     var rec: HitRecord = undefined;
     if (world.hit(r.*, 0.001, inf(f32), &rec)) {
-        const target: Point3 = rec.p + random_in_hemisphere(rec.normal, rand);
-        var ri = Ray{ .orig = rec.p, .dir = target - rec.p };
-        const rc = ray_color(&ri, world, depth - 1, rand);
-        return scale(@as(f32, 0.5), rc);
+        var scattered: Ray = undefined;
+        var attenuation: Color = undefined;
+        if (rec.mat_ptr.scatter(r, rec, attenuation, scattered, rng)) {
+            return scale(attenuation, ray_color(scattered, world, depth - 1, rng));
+        }
+        return Color{ 0, 0, 0 };
     }
 
     const unit_direction = unit_vector(r.dir);
@@ -86,45 +88,38 @@ pub fn main() anyerror!void {
 
     // the world has two spheres, a small one and a large one
     // Initialize the small sphere first
-    // const small_sphere_allocd = try allocator.alloc(Sphere, 1);
-    // defer allocator.free(small_sphere_allocd);
 
     // Initialize and add the sphere to the array_list of objects in the world
     // const small_sphere_ptr = @ptrCast(*(Sphere), small_sphere_allocd);
     // TODO: create an init function
     // small_sphere_ptr.center = Point3{ 0, 0, -1 };
     // small_sphere_ptr.radius = @as(f32, 0.5);
-    var small_sphere: Sphere = .{
-        .center = Point3{ 0, 0, -1 },
-        .radius = @as(f32, 0.5),
-    };
-    var small_sphere_hittable = Hittable.make(&small_sphere);
-    try world_hlist.add(&small_sphere_hittable);
-
-    // same for the larger sphere
-    // const large_sphere_allocd = try allocator.alloc(Sphere, 1);
-    // defer allocator.free(large_sphere_allocd);
-    // const large_sphere_ptr = @ptrCast(*(Sphere), large_sphere_allocd);
-    // large_sphere_ptr.center = Point3{ 0, -100.5, -1 };
-    // large_sphere_ptr.radius = @as(f32, 100);
-    var large_sphere: Sphere = .{
+    const ground_lambert = material.Lambertian { .albedo = Color {0.8, 0.8, 0.0 }};
+    const center_lambert = material.Lambertian { .albedo = Color {0.7, 0.3, 0.3 }};
+    const left_metal = material.Metal { .albedo = Color {0.8, 0.8, 0.8} };
+    const right_metal = material.Metal { .albedo = Color {0.8 ,0.6, 0.2} }; 
+    
+    const ground_mat = Material.make(&ground_lambert);
+    const center_mat = Material.make(&center_lambert);
+    const left_mat = Material.make(&left_metal);
+    const right_mat = Material.make(&right_metal);
+    
+    const ground_sphere = Sphere { .center = Point3 { 0.0, -100.5, -1.0 },.radius = 100.0, .mat_ptr = &ground_mat};
+    const ground_sphere_hittable = Hittable.make(ground_sphere);
+    world_hlist.add(ground_sphere_hittable);
+        var large_sphere: Sphere = .{
         .center = Point3{ 0, -100.5, -1 },
         .radius = @as(f32, 100),
     };
-    var large_sphere_hittable = Hittable.make(&large_sphere);
-    try world_hlist.add(&large_sphere_hittable);
 
+    // TODO: the rest of the spheres
     // make a Hittable out of the HittableList object that is the world
     var world = Hittable.make(&world_hlist);
 
     try bufout.print("P3\n{} {}\n255\n", .{ image_width, image_height });
 
-    var prng = std.rand.DefaultPrng.init(blk: {
-        var seed: u64 = undefined;
-        try std.os.getrandom(std.mem.asBytes(&seed));
-        break :blk seed;
-    });
-    const rand = prng.random();
+    const seed: u64 = 0xc0ffee;
+    const rng = rand.DefaultPrng.init(seed).random();
     var j = image_height - 1;
 
     const dw = @as(f32, image_width - 1);
@@ -137,8 +132,8 @@ pub fn main() anyerror!void {
             var pixel_color = Color{ 0, 0, 0 };
             var s: i32 = 0;
             while (s < samples_per_pixel) : (s += 1) {
-                const u = (@intToFloat(f32, i) + random_float(rand)) / dw;
-                const v = (@intToFloat(f32, j) + random_float(rand)) / dh;
+                const u = (@intToFloat(f32, i) + vec3.random(rng)) / dw;
+                const v = (@intToFloat(f32, j) + vec3.random(rng)) / dh;
                 var r = cam.get_ray(u, v);
                 pixel_color += ray_color(&r, &world, max_depth, rand);
             }
