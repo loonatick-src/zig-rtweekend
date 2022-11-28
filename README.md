@@ -31,10 +31,8 @@ TODO
 
 
 ## TODO
-- [ ] **PRIORITY**: figure out design pattern
-      `Material` requires `HitRecord` as a function parameter type in its virtual table, but `HitRecord`also requires `Material` to store a pointer to it. Using concrete types results in an infinite recursion. Consider using `*anyopaque` for one of the types along with a pointer cast
-- [ ] Try different polymorphism patterns: see [this showtime](https://www.youtube.com/watch?v=AHc4x1uXBQE)
+- [ ] Try different polymorphism patterns: see [this showtime](https://www.youtube.com/watch?v=AHc4x1uXBQE). Specifically, it would be nicer to do `const s1 = Sphere { ... }; const s1_h = s1.hittable();` instead of the `make` thing that we have going on right now
 - [ ] Parallelize
     - [ ] Load-balancing
-- [ ] GPU Acceleration
+- [ ] GPU Acceleration? See Mach engine and Zig gamedev scene in general for inspiration maybe?
 
