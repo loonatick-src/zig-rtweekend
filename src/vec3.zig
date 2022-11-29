@@ -8,12 +8,12 @@ const Vector = std.meta.Vector;
 
 pub const Vec3 = Vector(3, f32);
 
-pub fn near_zero(self: *Vec3) bool {
+pub fn near_zero(self: Vec3) bool {
     const abstol: f32 = 1.0e-8;
     return @fabs(self[0]) < abstol and @fabs(self[1]) < abstol and @fabs(self[2]) < abstol;
 }
 
-pub fn reflect(v: *Vec3, n: *Vec3) Vec3 {
+pub fn reflect(v: Vec3, n: Vec3) Vec3 {
     return v - scale(2 * dot(v, n), n);
 }
 
@@ -38,6 +38,10 @@ pub fn unit_vector(v: Vec3) Vec3 {
     const m: f32 = magnitude(v);
     const rv: Vec3 = scale(1.0 / m, v);
     return rv;
+}
+
+pub fn random_unit_vector(rng: rand.Random) Vec3 {
+    return unit_vector(random_in_unit_sphere(rng));
 }
 
 pub fn length_squared(v: Vec3) f32 {

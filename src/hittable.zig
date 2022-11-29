@@ -3,6 +3,7 @@ const ray = @import("ray.zig");
 const vec3 = @import("vec3.zig");
 const material = @import("material.zig");
 
+const assert = std.debug.assert;
 const inf = std.math.inf;
 
 const Point3 = vec3.Point3;
@@ -33,31 +34,45 @@ pub const HitRecord = struct {
 // highly doubt I could have come up with this on my own.
 // `fn (usize, r: Ray, t_min: f32, t_max: f32, rec: *HitRecord) bool`
 pub const Hittable = struct {
-    ptr: *anyopaquee,
+    ptr: *anyopaque,
     vtable: *const VTable,
 
+    pub fn hit(ptr: *@This(), r: Ray, t_min: f32, t_max: f32, rec: *HitRecord) bool {
+        _ = ptr;
+        _ = r;
+        _ = t_min;
+        _ = t_max;
+        _ = rec;
+
+        return false;
+    }
+
     pub const VTable = struct {
-        hit: std.meta.FnPtr(fn (ptr: *anyopaque, r: Ray, t_min: f32, t_max: f32, rec: *HitRecord) bool),
+        hit: fn (ptr: *anyopaque, r: Ray, t_min: f32, t_max: f32, rec: *HitRecord) bool,
     };
 
     pub fn init(pointer: anytype, comptime hitFn: fn (ptr: @TypeOf(pointer), r: Ray, t_min: f32, t_max: f32, rec: *HitRecord) bool) Hittable {
-        const Ptr = @typeOf(pointer);
+        const Ptr = @TypeOf(pointer);
         const ptr_info = @typeInfo(Ptr);
 
         assert(ptr_info == .Pointer); // Must be a pointer
-        assert(ptr_info.Pointer_size == .One); // Must be a single-item pointer
+        assert(ptr_info.Pointer.size == .One); // Must be a single-item pointer
 
-        const alignment = ptr_info.Pointer.Alignment;
+        const alignment = ptr_info.Pointer.alignment;
 
         const gen = struct {
             fn hitImpl(ptr: *anyopaque, r: Ray, t_min: f32, t_max: f32, rec: *HitRecord) bool {
                 const self = @ptrCast(Ptr, @alignCast(alignment, ptr));
                 return @call(.{ .modifier = .always_inline }, hitFn, .{ self, r, t_min, t_max, rec });
             }
+
+            const vtable = VTable{
+                .hit = hitImpl,
+            };
         };
 
         return .{
-            .ptr = ptr,
+            .ptr = pointer,
             .vtable = &gen.vtable,
         };
     }

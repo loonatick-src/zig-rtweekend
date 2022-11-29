@@ -43,8 +43,8 @@ fn ray_color(r: *Ray, world: *Hittable, depth: i32, rng: rand.Random) Color {
     if (world.hit(r.*, 0.001, inf(f32), &rec)) {
         var scattered: Ray = undefined;
         var attenuation: Color = undefined;
-        if (rec.mat_ptr.scatter(r, rec, attenuation, scattered, rng)) {
-            return scale(attenuation, ray_color(scattered, world, depth - 1, rng));
+        if (rec.mat_ptr.scatter(r, &rec, &attenuation, &scattered, rng)) {
+            return attenuation * ray_color(&scattered, world, depth - 1, rng);
         }
         return Color{ 0, 0, 0 };
     }
@@ -94,32 +94,30 @@ pub fn main() anyerror!void {
     // TODO: create an init function
     // small_sphere_ptr.center = Point3{ 0, 0, -1 };
     // small_sphere_ptr.radius = @as(f32, 0.5);
-    const ground_lambert = material.Lambertian{ .albedo = Color{ 0.8, 0.8, 0.0 } };
-    const center_lambert = material.Lambertian{ .albedo = Color{ 0.7, 0.3, 0.3 } };
-    const left_metal = material.Metal{ .albedo = Color{ 0.8, 0.8, 0.8 } };
-    const right_metal = material.Metal{ .albedo = Color{ 0.8, 0.6, 0.2 } };
+    var ground_lambert = material.Lambertian{ .albedo = Color{ 0.8, 0.8, 0.0 } };
+    var center_lambert = material.Lambertian{ .albedo = Color{ 0.7, 0.3, 0.3 } };
+    var left_metal = material.Metal{ .albedo = Color{ 0.8, 0.8, 0.8 } };
+    var right_metal = material.Metal{ .albedo = Color{ 0.8, 0.6, 0.2 } };
 
-    const ground_mat = ground_lambert.material();
-    const center_mat = ground_lambert.material();
-    const left_mat = left_metal.material();
-    const right_mat = right_metal.material();
+    var ground_mat = ground_lambert.material();
+    var center_mat = center_lambert.material();
+    var left_mat = left_metal.material();
+    var right_mat = right_metal.material();
 
-    const ground_sphere = Sphere{ .center = Point3{ 0.0, -100.5, -1.0 }, .radius = 100.0, .mat_ptr = &ground_mat };
+    var ground_sphere = Sphere{ .center = Point3{ 0.0, -100.5, -1.0 }, .radius = 100.0, .mat_ptr = &ground_mat };
     // TODO: correct the coords and dimensions of the following three spheres
-    const center_sphere = Sphere{ .center = Point3{ 0.0, 0.0, 0.0 }, .radius = 1.0, .mat_ptr = &center_mat };
-    const left_sphere = Sphere{ .center = Point3{ 0.0, 0.0, 0.0 }, .radius = 1.0, .mat_ptr = &left_mat };
-    const right_sphere = Sphere{ .center = Point3{ 0.0, 0.0, 0.0 }, .radius = 1.0, .mat_ptr = &right_mat };
+    var center_sphere = Sphere{ .center = Point3{ 0.0, 0.0, -1.0 }, .radius = 0.5, .mat_ptr = &center_mat };
+    var left_sphere = Sphere{ .center = Point3{ -1.0, 0.0, -1.0 }, .radius = 0.5, .mat_ptr = &left_mat };
+    var right_sphere = Sphere{ .center = Point3{ 1.0, 0.0, -1.0 }, .radius = 0.5, .mat_ptr = &right_mat };
 
-    const ground_sphere_hittable = ground_sphere.hittable();
-    world_hlist.add(ground_sphere_hittable);
-    var large_sphere: Sphere = .{
-        .center = Point3{ 0, -100.5, -1 },
-        .radius = @as(f32, 100),
-    };
-
-    world_hlist.add(center_sphere_hittable);
-    world_hlist.add(left_sphere_hittable);
-    world_hlist.add(right_sphere_hittbable);
+    var ground_sphere_h = ground_sphere.hittable();
+    var center_sphere_h = center_sphere.hittable();
+    var left_sphere_h = left_sphere.hittable();
+    var right_sphere_h = right_sphere.hittable();
+    try world_hlist.add(&ground_sphere_h);
+    try world_hlist.add(&center_sphere_h);
+    try world_hlist.add(&left_sphere_h);
+    try world_hlist.add(&right_sphere_h);
 
     // TODO: the rest of the spheres
     // make a Hittable out of the HittableList object that is the world
@@ -144,7 +142,7 @@ pub fn main() anyerror!void {
                 const u = (@intToFloat(f32, i) + vec3.random(rng)) / dw;
                 const v = (@intToFloat(f32, j) + vec3.random(rng)) / dh;
                 var r = cam.get_ray(u, v);
-                pixel_color += ray_color(&r, &world, max_depth, rand);
+                pixel_color += ray_color(&r, &world, max_depth, rng);
             }
             try write_color(@TypeOf(bufout), bufout, pixel_color, samples_per_pixel);
         }

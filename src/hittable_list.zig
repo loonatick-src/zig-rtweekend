@@ -36,4 +36,8 @@ pub const HittableList = struct {
     pub fn add(self: *@This(), obj: *Hittable) !void {
         try self.objects.append(obj);
     }
+
+    pub fn hittable(self: *@This()) Hittable {
+        return Hittable.init(self, hit);
+    }
 };
