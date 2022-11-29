@@ -14,22 +14,25 @@ const unit_vector = vec3.unit_vector;
 const reflect = vec3.reflect;
 
 pub const Material = struct {
-    const VTable = struct { scatter: fn (usize, r: *Ray, rec: *HitRecord, attenuation: *Color, scattered: *Ray, rng: rand.Random) bool };
-    vtable: *const VTable,
-    object: usize,
+    const VTable = struct { scatterFn: fn (ptr: *anyopaque, r: *Ray, rec: *HitRecord, attenuation: *Color, scattered: *Ray, rng: rand.Random) bool };
 
-    pub fn make(obj: anytype) @This() {
+    ptr: *anyopaque,
+    vtable: *const VTable,
+
+    pub fn init(obj: anytype, comptime hitFn: fn (ptr: *anyopaque, r: *Ray, rec: *HitRecord, attenuation: *Color, scattered: *Ray, rng: rand.Random) bool) @This() {
         const PtrType = @TypeOf(obj);
-        return .{
-            .vtable = &comptime VTable{
-                .scatter = struct {
-                    pub fn scatter(ptr: usize, r: *Ray, rec: *HitRecord, attenuation: *Color, scattered: *Ray, rng: rand.Random) bool {
-                        const self = @intToPtr(PtrType, ptr);
-                        return @call(.{ .modifier = .always_inline }, std.meta.Child(PtrType).hit, .{ self, r, rec, attenuation, scattered, rng });
-                    } // fn scatter
-                }.scatter, // .scatter
-            }, // .vtable
-            .object = @ptrToInt(obj),
+        const ptr_info = @typeInfo(Ptr);
+
+        assert(ptr_info == .Pointer);
+        assert(ptr_info.Pointer_size == .One);
+
+        const alignment = ptr_info.Pointer.Alignment;
+
+        const gen = struct {
+            fn scatterImpl(ptr: *anyopaque, r: *Ray, rec: *HitRecord, attenuation: *Color, scattered: *Ray, rng: rand.Random) bool {
+                const self = @ptrCast(Ptr, @alignCast(alignment, ptr));
+                return @call(.{ .modifier = .always_inline }, scatterFn, .{ self, r, rec, attenuation, scattered, rng });
+            }
         };
     }
 };
@@ -48,6 +51,10 @@ pub const Lambertian = struct {
         attenuation.* = self.albedo;
         return true;
     }
+
+    pub fn material(self: *@This()) Material {
+        return Material.init(self, scatter);
+    }
 };
 
 pub const Metal = struct {
@@ -58,5 +65,9 @@ pub const Metal = struct {
         scattered.* = Ray{ .orig = rec.p, .dir = reflected };
         attenuation.* = self.albedo;
         return (vec3.dot(scattered.dir, rec.normal) > 0);
+    }
+
+    pub fn Material(self: *@This()) Materil {
+        return Material.init(self, scatter);
     }
 };

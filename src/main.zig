@@ -94,27 +94,36 @@ pub fn main() anyerror!void {
     // TODO: create an init function
     // small_sphere_ptr.center = Point3{ 0, 0, -1 };
     // small_sphere_ptr.radius = @as(f32, 0.5);
-    const ground_lambert = material.Lambertian { .albedo = Color {0.8, 0.8, 0.0 }};
-    const center_lambert = material.Lambertian { .albedo = Color {0.7, 0.3, 0.3 }};
-    const left_metal = material.Metal { .albedo = Color {0.8, 0.8, 0.8} };
-    const right_metal = material.Metal { .albedo = Color {0.8 ,0.6, 0.2} }; 
-    
-    const ground_mat = Material.make(&ground_lambert);
-    const center_mat = Material.make(&center_lambert);
-    const left_mat = Material.make(&left_metal);
-    const right_mat = Material.make(&right_metal);
-    
-    const ground_sphere = Sphere { .center = Point3 { 0.0, -100.5, -1.0 },.radius = 100.0, .mat_ptr = &ground_mat};
-    const ground_sphere_hittable = Hittable.make(ground_sphere);
+    const ground_lambert = material.Lambertian{ .albedo = Color{ 0.8, 0.8, 0.0 } };
+    const center_lambert = material.Lambertian{ .albedo = Color{ 0.7, 0.3, 0.3 } };
+    const left_metal = material.Metal{ .albedo = Color{ 0.8, 0.8, 0.8 } };
+    const right_metal = material.Metal{ .albedo = Color{ 0.8, 0.6, 0.2 } };
+
+    const ground_mat = ground_lambert.material();
+    const center_mat = ground_lambert.material();
+    const left_mat = left_metal.material();
+    const right_mat = right_metal.material();
+
+    const ground_sphere = Sphere{ .center = Point3{ 0.0, -100.5, -1.0 }, .radius = 100.0, .mat_ptr = &ground_mat };
+    // TODO: correct the coords and dimensions of the following three spheres
+    const center_sphere = Sphere{ .center = Point3{ 0.0, 0.0, 0.0 }, .radius = 1.0, .mat_ptr = &center_mat };
+    const left_sphere = Sphere{ .center = Point3{ 0.0, 0.0, 0.0 }, .radius = 1.0, .mat_ptr = &left_mat };
+    const right_sphere = Sphere{ .center = Point3{ 0.0, 0.0, 0.0 }, .radius = 1.0, .mat_ptr = &right_mat };
+
+    const ground_sphere_hittable = ground_sphere.hittable();
     world_hlist.add(ground_sphere_hittable);
-        var large_sphere: Sphere = .{
+    var large_sphere: Sphere = .{
         .center = Point3{ 0, -100.5, -1 },
         .radius = @as(f32, 100),
     };
 
+    world_hlist.add(center_sphere_hittable);
+    world_hlist.add(left_sphere_hittable);
+    world_hlist.add(right_sphere_hittbable);
+
     // TODO: the rest of the spheres
     // make a Hittable out of the HittableList object that is the world
-    var world = Hittable.make(&world_hlist);
+    var world = world_hlist.hittable();
 
     try bufout.print("P3\n{} {}\n255\n", .{ image_width, image_height });
 

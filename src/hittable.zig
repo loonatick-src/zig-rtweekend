@@ -11,10 +11,6 @@ const dot = vec3.dot;
 const Ray = ray.Ray;
 const Material = material.Material;
 
-// Ladies and gentlemen, runtime polymorphism. Check out the following lovely showtime
-// https://www.youtube.com/watch?v=AHc4x1uXBQE&t=2126s
-// With my understanding of Zig at the time of working on this project, I
-// highly doubt I could have come up with this on my own.
 pub const HitRecord = struct {
     p: Point3,
     normal: Vec3,
@@ -31,27 +27,38 @@ pub const HitRecord = struct {
     }
 };
 
+// Ladies and gentlemen, runtime polymorphism. Check out the following lovely showtime
+// https://www.youtube.com/watch?v=AHc4x1uXBQE&t=2126s
+// With my understanding of Zig at the time of working on this project, I
+// highly doubt I could have come up with this on my own.
+// `fn (usize, r: Ray, t_min: f32, t_max: f32, rec: *HitRecord) bool`
 pub const Hittable = struct {
-    const VTable = struct { hit: fn (usize, r: Ray, t_min: f32, t_max: f32, rec: *HitRecord) bool };
+    ptr: *anyopaquee,
     vtable: *const VTable,
-    object: usize,
 
-    pub fn hit(self: @This(), r: Ray, t_min: f32, t_max: f32, rec: *HitRecord) bool {
-        return self.vtable.hit(self.object, r, t_min, t_max, rec);
-    }
+    pub const VTable = struct {
+        hit: std.meta.FnPtr(fn (ptr: *anyopaque, r: Ray, t_min: f32, t_max: f32, rec: *HitRecord) bool),
+    };
 
-    pub fn make(obj: anytype) @This() {
-        const PtrType = @TypeOf(obj);
-        return .{
-            .vtable = &comptime VTable{
-                .hit = struct {
-                    pub fn hit(ptr: usize, r: Ray, t_min: f32, t_max: f32, rec: *HitRecord) bool {
-                        const self = @intToPtr(PtrType, ptr);
-                        return @call(.{ .modifier = .always_inline }, std.meta.Child(PtrType).hit, .{ self, r, t_min, t_max, rec });
-                    } // fn hit
-                }.hit, // .hit
-            }, // .vtable
-            .object = @ptrToInt(obj),
+    pub fn init(pointer: anytype, comptime hitFn: fn (ptr: @TypeOf(pointer), r: Ray, t_min: f32, t_max: f32, rec: *HitRecord) bool) Hittable {
+        const Ptr = @typeOf(pointer);
+        const ptr_info = @typeInfo(Ptr);
+
+        assert(ptr_info == .Pointer); // Must be a pointer
+        assert(ptr_info.Pointer_size == .One); // Must be a single-item pointer
+
+        const alignment = ptr_info.Pointer.Alignment;
+
+        const gen = struct {
+            fn hitImpl(ptr: *anyopaque, r: Ray, t_min: f32, t_max: f32, rec: *HitRecord) bool {
+                const self = @ptrCast(Ptr, @alignCast(alignment, ptr));
+                return @call(.{ .modifier = .always_inline }, hitFn, .{ self, r, t_min, t_max, rec });
+            }
         };
-    } // fn make
+
+        return .{
+            .ptr = ptr,
+            .vtable = &gen.vtable,
+        };
+    }
 };

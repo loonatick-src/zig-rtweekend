@@ -20,6 +20,10 @@ pub const Sphere = struct {
     radius: f32,
     mat_ptr: *Material,
 
+    pub fn hittable(self: *Sphere) Hittable {
+        return Hittable.init(self, hit);
+    }
+
     pub fn hit(self: *@This(), r: Ray, t_min: f32, t_max: f32, rec: *HitRecord) bool {
         const oc = r.orig - self.center;
         const a = length_squared(r.dir);
